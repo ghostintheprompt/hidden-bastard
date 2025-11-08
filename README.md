@@ -1,20 +1,27 @@
 # Hidden Bastard File Deleter
 
+<p align="center">
+  <img src="docs/app-icon-placeholder.png" width="128" height="128" alt="Hidden Bastard App Icon">
+</p>
+
+<p align="center">
+  <strong>Reclaim Your Disk Space with Confidence</strong>
+</p>
+
 ## The Hidden File Problem
 
-Are you sick of those crooked motherfuckers at Apple hiding files all over your Mac? So are we.
+Your Mac silently accumulates GIGABYTES of hidden files you never asked for:
+- Application support files that grow without limit
+- Container directories filled with temporary files
+- Caches that are never automatically cleared
+- Media analysis data consuming tens of gigabytes
+- Developer artifacts from Xcode and simulators
 
-Every day, your Mac silently accumulates GIGABYTES of hidden files you never asked for:
-- "Application support" that's just bloated crap
-- "Containers" filled with useless temporary files
-- "Caches" that never get cleared automatically
-- "Analysis" data that tracks your media usage
+**These files are hidden by design** - but they're wasting your valuable storage space.
 
-**WHY THE HELL ARE THESE FILES HIDDEN?** Because they don't want you to know how much space they're wasting.
+## Take Back Control
 
-## Reclaim Your Disk Space
-
-Hidden Bastard File Deleter exposes these secret storage hogs and gives YOU back control of YOUR computer. This powerful macOS application is designed by people who are TIRED of Apple's hidden file bullshit.
+Hidden Bastard reveals these hidden storage hogs and gives you back control of your computer. This powerful macOS application helps you identify and safely remove files that are wasting your disk space.
 
 ## Technical Features
 
@@ -34,9 +41,9 @@ Hidden Bastard File Deleter exposes these secret storage hogs and gives YOU back
 - **Docker Bloat (~30GB+)**: Unused images, containers, and volumes
 - **iCloud Cached Files (~25GB+)**: Local copies of "cloud" files you thought were saving space
 
-## No Permission Bullshit
+## Transparent & Powerful
 
-Unlike Apple's own "storage management" that shows you nothing useful, we actually show you what's eating your space and let you nuke it all. Our app requires Full Disk Access because we don't play by Apple's hide-and-seek rules.
+Unlike macOS's built-in storage management that provides limited information, Hidden Bastard shows you exactly what's consuming your space and lets you decide what to keep or delete. The app requests Full Disk Access to scan system-protected directories and provide complete visibility.
 
 ## System Requirements
 
@@ -45,9 +52,22 @@ Unlike Apple's own "storage management" that shows you nothing useful, we actual
 
 ## Installation
 
-1. Download the latest release from the [Releases](https://github.com/MdrnDme/hidden-bastard-file-eliminator/releases) page
-2. Drag the app to your Applications folder
-3. Grant Full Disk Access when prompted (essential for finding what those motherfuckers are hiding)
+### Option 1: Download DMG (Recommended)
+
+1. Download the latest release from the [Releases](https://github.com/ghostintheprompt/hidden_bastard/releases) page
+2. Open the DMG and drag Hidden Bastard to your Applications folder
+3. Launch the app
+4. Grant Full Disk Access when prompted (System Preferences → Security & Privacy → Privacy → Full Disk Access)
+
+### Option 2: Build from Source
+
+See [BUILD.md](BUILD.md) for detailed build instructions.
+
+```bash
+git clone https://github.com/ghostintheprompt/hidden_bastard.git
+cd hidden_bastard
+open HiddenBastard.xcodeproj
+```
 
 ## The Technical Details
 
@@ -65,7 +85,41 @@ Our proprietary risk assessment algorithm evaluates each file based on:
 
 ## Privacy & Security
 
-We respect YOUR privacy, unlike some companies. All scanning happens locally on your machine. No data is ever transmitted outside of your computer.
+Your privacy is paramount. All scanning happens locally on your machine. **No data is ever transmitted** outside of your computer. No analytics, no tracking, no telemetry.
+
+The app is properly sandboxed and code-signed for your security.
+
+## Licensing
+
+Hidden Bastard is distributed as shareware:
+
+- **Trial Version**: Full scanning capabilities, 10GB deletion limit per session
+- **Licensed Version**: $19.99 - Unlimited deletions, automated cleaning rules, priority support
+
+Purchase a license to unlock all features and support continued development.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshot-scan.png" width="600" alt="Scan View">
+  <br>
+  <em>Intuitive scan interface with category selection</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshot-results.png" width="600" alt="Results View">
+  <br>
+  <em>Detailed file list with size and risk analysis</em>
+</p>
+
+## Building & Distribution
+
+See [BUILD.md](BUILD.md) for comprehensive instructions on:
+- Building the app in Xcode
+- Code signing and notarization
+- Creating distributable DMGs
+- Integrating payment systems for shareware licensing
+- Marketing and distribution strategies
 
 ## License
 
