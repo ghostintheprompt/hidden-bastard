@@ -32,5 +32,7 @@
 	<string>Hidden Bastard needs to control other applications to clean up their cache files.</string>
 	<key>NSSystemAdministrationUsageDescription</key>
 	<string>Hidden Bastard needs administrator privileges to delete protected system files.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
