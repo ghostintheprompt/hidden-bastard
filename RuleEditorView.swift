@@ -217,7 +217,7 @@ struct TargetEditorRow: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    TextField("e.g., \\.tmp$", text: Binding(
+                    TextField("e.g., \\.tmp$", text: Binding<String>(
                         get: { target.pattern ?? "" },
                         set: { target.pattern = $0.isEmpty ? nil : $0 }
                     ))
@@ -245,7 +245,7 @@ struct TargetEditorRow: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    TextField("Size", value: Binding(
+                    TextField("Size", value: Binding<UInt64>(
                         get: { (target.sizeThreshold ?? 0) / 1_000_000 },
                         set: { target.sizeThreshold = $0 > 0 ? $0 * 1_000_000 : nil }
                     ), format: .number)
@@ -257,9 +257,9 @@ struct TargetEditorRow: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
 
-                    TextField("Age", value: Binding(
-                        get: { (target.ageThreshold ?? 0) / (24 * 3600) },
-                        set: { target.ageThreshold = $0 > 0 ? $0 * 24 * 3600 : nil }
+                    TextField("Age", value: Binding<Int>(
+                        get: { Int((target.ageThreshold ?? 0) / (24 * 3600)) },
+                        set: { target.ageThreshold = $0 > 0 ? TimeInterval($0 * 24 * 3600) : nil }
                     ), format: .number)
                     .textFieldStyle(.roundedBorder)
                 }

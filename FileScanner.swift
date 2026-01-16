@@ -3,7 +3,7 @@ import Foundation
 // The main file scanning engine
 class FileScanner {
     // Delegate to report progress and findings
-    weak var delegate: FileScannerDelegate?
+    var delegate: FileScannerDelegate?
 
     // Scan progress
     private(set) var isScanning = false
@@ -40,7 +40,11 @@ class FileScanner {
             // Filter to enabled locations only
             let enabledLocations = locations.filter { $0.isEnabled }
 
-            self.delegate?.scannerDidStartScan()
+            if let delegate = self.delegate {
+                Task { @MainActor in
+                    delegate.scannerDidStartScan()
+                }
+            }
 
             var problemFiles: [ProblemFile] = []
 
@@ -52,7 +56,11 @@ class FileScanner {
                 }
 
                 let progress = Float(index) / Float(max(enabledLocations.count, 1))
-                self.delegate?.scannerDidUpdateProgress(progress: progress)
+                if let delegate = self.delegate {
+                    Task { @MainActor in
+                        delegate.scannerDidUpdateProgress(progress: progress)
+                    }
+                }
 
                 // Resolve bookmark to get access
                 guard let url = locationManager.resolveBookmark(for: location) else {
@@ -274,7 +282,8 @@ class FileScanner {
 }
 
 // Protocol for reporting scan progress
-protocol FileScannerDelegate: AnyObject {
+@MainActor
+protocol FileScannerDelegate: Sendable {
     func scannerDidStartScan()
     func scannerDidUpdateProgress(progress: Float)
     func scannerDidFinishScan(files: [ProblemFile])

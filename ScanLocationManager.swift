@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 
 // Manages user-selected scan locations with security-scoped bookmarks
+@MainActor
 class ScanLocationManager: ObservableObject {
     @Published var scanLocations: [ScanLocation] = []
 

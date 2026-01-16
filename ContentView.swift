@@ -135,7 +135,7 @@ struct ContentView: View {
         }
     }
     
-    var scanView: View {
+    var scanView: some View {
         VStack(spacing: AppTheme.standardPadding) {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.smallPadding) {
@@ -258,7 +258,7 @@ struct ContentView: View {
         .padding()
     }
     
-    var fileListView: View {
+    var fileListView: some View {
         VStack(spacing: 0) {
             // Empty state if no scan results yet
             if !scanCompleted || problemFiles.isEmpty {
@@ -371,7 +371,7 @@ struct ContentView: View {
         }
     }
     
-    var rulesView: View {
+    var rulesView: some View {
         VStack(spacing: AppTheme.standardPadding) {
             HStack {
                 Text("Automated Cleaning Rules")
@@ -458,7 +458,7 @@ struct ContentView: View {
         }
     }
     
-    var systemMonitorView: View {
+    var systemMonitorView: some View {
         VStack(spacing: AppTheme.standardPadding) {
             HStack {
                 Text("System Monitoring")

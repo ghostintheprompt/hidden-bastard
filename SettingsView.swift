@@ -76,7 +76,7 @@ struct SettingsView: View {
         .frame(width: 600, height: 500)
     }
 
-    var generalSettings: View {
+    var generalSettings: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.standardPadding) {
                 SettingsSection(title: "Behavior") {
@@ -115,7 +115,7 @@ struct SettingsView: View {
         }
     }
 
-    var scanningSettings: View {
+    var scanningSettings: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppTheme.standardPadding) {
                 SettingsSection(title: "Size Threshold") {
@@ -180,7 +180,7 @@ struct SettingsView: View {
         }
     }
 
-    var aboutSettings: View {
+    var aboutSettings: some View {
         ScrollView {
             VStack(spacing: AppTheme.largePadding) {
                 AppIcon(size: 80)
