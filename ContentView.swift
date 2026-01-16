@@ -2,10 +2,12 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @StateObject private var locationManager = ScanLocationManager()
+    @StateObject private var diskMonitor = DiskSpaceMonitor()
+    @StateObject private var rulesEngine = RulesEngine()
     @State private var scanInProgress = false
     @State private var scanCompleted = false
     @State private var problemFiles: [ProblemFile] = []
-    @State private var selectedCategories = Set<String>()
     @State private var totalSizeFound: UInt64 = 0
     @State private var diskSpaceUsage: [DiskSpaceItem] = []
     @State private var isShowingSettings = false
@@ -16,17 +18,9 @@ struct ContentView: View {
     @State private var isShowingDeleteConfirmation = false
     @State private var filesToDelete: [ProblemFile] = []
     @State private var isShowingDeletionSuccess = false
-    
-    // Categories of files to scan
-    let categories = [
-        "Apple Media Analysis", 
-        "Incomplete Downloads",
-        "Application Caches", 
-        "Developer Files",
-        "System Logs",
-        "Docker",
-        "Trash Items"
-    ]
+    @State private var isShowingLocationPicker = false
+    @State private var isShowingRuleEditor = false
+    @State private var editingRule: CleaningRule?
     
     var body: some View {
         NavigationView {
@@ -136,11 +130,6 @@ struct ContentView: View {
         }
         .frame(minWidth: 800, minHeight: 600)
         .onAppear {
-            // Set some default categories
-            selectedCategories = ["Apple Media Analysis", "Incomplete Downloads", "Developer Files"].reduce(into: Set<String>()) { set, category in
-                set.insert(category)
-            }
-            
             // Set up scanner delegate
             fileScanner.delegate = self
         }
@@ -150,27 +139,55 @@ struct ContentView: View {
         VStack(spacing: AppTheme.standardPadding) {
             ScrollView {
                 VStack(alignment: .leading, spacing: AppTheme.smallPadding) {
-                    // Category selection with icons
-                    Text("Select Areas to Scan:")
-                        .font(.headline)
-                        .padding(.bottom, 5)
-                    
-                    VStack(spacing: 8) {
-                        ForEach(categories, id: \.self) { category in
-                            CategoryToggleRow(
-                                icon: AppTheme.iconForCategory(category),
-                                title: category,
-                                isSelected: Binding(
-                                    get: { selectedCategories.contains(category) },
-                                    set: { newValue in
-                                        if newValue {
-                                            selectedCategories.insert(category)
-                                        } else {
-                                            selectedCategories.remove(category)
+                    // Scan locations header
+                    HStack {
+                        Text("Scan Locations:")
+                            .font(.headline)
+
+                        Spacer()
+
+                        Button(action: {
+                            locationManager.addLocation(categories: ["Custom"]) { success in
+                                if success {
+                                    print("Location added successfully")
+                                }
+                            }
+                        }) {
+                            Label("Add Folder", systemImage: "plus.circle.fill")
+                                .font(.subheadline)
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                    .padding(.bottom, 5)
+
+                    // Scan locations list
+                    if locationManager.scanLocations.isEmpty {
+                        VStack(spacing: 12) {
+                            Text("No scan locations added yet")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+
+                            Text("Click 'Add Folder' to choose folders to scan")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(locationManager.scanLocations) { location in
+                                ScanLocationRow(
+                                    location: location,
+                                    onToggle: {
+                                        locationManager.toggleLocation(location)
+                                    },
+                                    onDelete: {
+                                        if let index = locationManager.scanLocations.firstIndex(where: { $0.id == location.id }) {
+                                            locationManager.removeLocation(at: IndexSet(integer: index))
                                         }
                                     }
                                 )
-                            )
+                            }
                         }
                     }
                 }
@@ -235,7 +252,7 @@ struct ContentView: View {
                 .padding()
             }
             .buttonStyle(AccentButtonStyle())
-            .disabled(selectedCategories.isEmpty)
+            .disabled(locationManager.scanLocations.filter { $0.isEnabled }.isEmpty)
             .modifier(PulsingAnimation())
         }
         .padding()
@@ -287,10 +304,18 @@ struct ContentView: View {
                                 .padding(.vertical, 6)
                             ) {
                                 ForEach(files) { file in
-                                    EnhancedFileRowView(file: file, onDelete: {
-                                        filesToDelete = [file]
-                                        isShowingDeleteConfirmation = true
-                                    })
+                                    EnhancedFileRowView(
+                                        file: file,
+                                        onDelete: {
+                                            filesToDelete = [file]
+                                            isShowingDeleteConfirmation = true
+                                        },
+                                        onToggle: { newValue in
+                                            if let index = problemFiles.firstIndex(where: { $0.id == file.id }) {
+                                                problemFiles[index].isSelected = newValue
+                                            }
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -351,61 +376,86 @@ struct ContentView: View {
             HStack {
                 Text("Automated Cleaning Rules")
                     .font(.headline)
-                
+
                 Spacer()
-                
+
                 Button(action: {
-                    // Show rule creation dialog
+                    editingRule = nil
+                    isShowingRuleEditor = true
                 }) {
                     Label("Add Rule", systemImage: "plus")
                 }
                 .buttonStyle(.borderless)
             }
-            
-            List {
-                EnhancedRuleRowView(
-                    name: "Media Analysis Prevention",
-                    description: "Automatically clean Apple Media Analysis cache when it exceeds 1GB",
-                    icon: "photo",
-                    isEnabled: true,
-                    schedule: "Daily"
-                )
-                
-                EnhancedRuleRowView(
-                    name: "Crashed Download Cleanup",
-                    description: "Remove incomplete downloads older than 7 days",
-                    icon: "arrow.down.circle",
-                    isEnabled: false,
-                    schedule: "Weekly"
-                )
-                
-                EnhancedRuleRowView(
-                    name: "Docker Cleanup",
-                    description: "Remove unused Docker images and containers weekly",
-                    icon: "cube.box",
-                    isEnabled: true,
-                    schedule: "Weekly"
-                )
-                
-                EnhancedRuleRowView(
-                    name: "System Log Rotation",
-                    description: "Compress logs older than 30 days, delete after 90 days",
-                    icon: "doc.text",
-                    isEnabled: true,
-                    schedule: "Monthly"
-                )
-                
-                EnhancedRuleRowView(
-                    name: "XCode Cache Management",
-                    description: "Clean derived data folders not accessed in 30 days",
-                    icon: "hammer",
-                    isEnabled: true,
-                    schedule: "Weekly"
-                )
+
+            if rulesEngine.rules.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "clock.arrow.2.circlepath")
+                        .font(.system(size: 40))
+                        .foregroundColor(.secondary)
+
+                    Text("No Automated Rules")
+                        .font(.headline)
+
+                    Text("Create rules to automatically clean up files on a schedule")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Create Your First Rule") {
+                        editingRule = nil
+                        isShowingRuleEditor = true
+                    }
+                    .buttonStyle(AccentButtonStyle())
+                    .padding(.top)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(rulesEngine.rules) { rule in
+                        RealRuleRowView(
+                            rule: rule,
+                            onToggle: {
+                                rulesEngine.toggleRule(rule)
+                            },
+                            onEdit: {
+                                editingRule = rule
+                                isShowingRuleEditor = true
+                            },
+                            onExecute: {
+                                rulesEngine.executeRule(rule) { result in
+                                    print("Rule executed: \(result.filesProcessed) files, \(result.spaceFreed) bytes freed")
+                                    if result.wasSuccessful {
+                                        isShowingDeletionSuccess = true
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    .onDelete { offsets in
+                        rulesEngine.deleteRule(at: offsets)
+                    }
+                }
+                .listStyle(.inset)
             }
-            .listStyle(.inset)
         }
         .padding()
+        .sheet(isPresented: $isShowingRuleEditor) {
+            RuleEditorView(
+                rule: editingRule,
+                onSave: { newRule in
+                    if let existingRule = editingRule {
+                        rulesEngine.updateRule(newRule)
+                    } else {
+                        rulesEngine.addRule(newRule)
+                    }
+                    isShowingRuleEditor = false
+                },
+                onCancel: {
+                    isShowingRuleEditor = false
+                }
+            )
+        }
     }
     
     var systemMonitorView: View {
@@ -413,18 +463,18 @@ struct ContentView: View {
             HStack {
                 Text("System Monitoring")
                     .font(.headline)
-                
+
                 Spacer()
-                
+
                 // Refresh button
                 Button(action: {
-                    // Would refresh real-time data
+                    diskMonitor.refresh()
                 }) {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
             }
-            
+
             HStack(spacing: AppTheme.standardPadding) {
                 // Disk space donut chart
                 VStack {
@@ -432,15 +482,19 @@ struct ContentView: View {
                         Circle()
                             .stroke(Color.gray.opacity(0.2), lineWidth: 10)
                             .frame(width: 100, height: 100)
-                        
+
                         Circle()
-                            .trim(from: 0, to: 0.7) // Would be calculated from actual disk usage
-                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                            .trim(from: 0, to: diskMonitor.usagePercentage)
+                            .stroke(
+                                diskMonitor.usagePercentage > 0.9 ? Color.red :
+                                    diskMonitor.usagePercentage > 0.75 ? Color.orange : Color.blue,
+                                style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                            )
                             .frame(width: 100, height: 100)
                             .rotationEffect(.degrees(-90))
-                        
+
                         VStack(spacing: 0) {
-                            Text("70%")
+                            Text("\(Int(diskMonitor.usagePercentage * 100))%")
                                 .font(.title3)
                                 .fontWeight(.semibold)
                             Text("Used")
@@ -448,12 +502,12 @@ struct ContentView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
-                    
+
                     Text("Disk Space")
                         .font(.headline)
                         .padding(.top, 4)
-                    
-                    Text("213.7 GB free of 512 GB")
+
+                    Text("\(diskMonitor.formatBytes(diskMonitor.freeSpace)) free of \(diskMonitor.formatBytes(diskMonitor.totalSpace))")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -463,30 +517,39 @@ struct ContentView: View {
                 
                 // Problem areas chart
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Frequent Problem Areas")
+                    Text("Problem Areas Found")
                         .font(.headline)
-                    
-                    ForEach(["Apple Media Analysis", "Developer Files", "Application Caches"], id: \.self) { category in
-                        HStack {
-                            Text(category)
-                                .font(.subheadline)
-                            
-                            Spacer()
-                            
-                            // This would be dynamic data in a real implementation
-                            let value = category == "Apple Media Analysis" ? 0.8 : (category == "Developer Files" ? 0.6 : 0.4)
-                            
-                            ZStack(alignment: .leading) {
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(height: 6)
-                                
-                                Rectangle()
-                                    .fill(AppTheme.colorForCategory(category))
-                                    .frame(width: 200 * value, height: 6)
+
+                    if diskSpaceUsage.isEmpty {
+                        Text("Run a scan to see problem areas")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 8)
+                    } else {
+                        ForEach(diskSpaceUsage.prefix(3)) { item in
+                            HStack {
+                                Text(item.name)
+                                    .font(.subheadline)
+
+                                Spacer()
+
+                                ZStack(alignment: .leading) {
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(height: 6)
+
+                                    Rectangle()
+                                        .fill(item.color)
+                                        .frame(width: 200 * item.percentage, height: 6)
+                                }
+                                .frame(width: 200)
+                                .clipShape(Capsule())
+
+                                Text(formatBytes(item.size))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .frame(width: 70, alignment: .trailing)
                             }
-                            .frame(width: 200)
-                            .clipShape(Capsule())
                         }
                     }
                 }
@@ -498,32 +561,55 @@ struct ContentView: View {
             
             // Growth over time chart
             VStack(alignment: .leading, spacing: 6) {
-                Text("Space Usage Growth")
-                    .font(.headline)
-                
-                HStack(alignment: .bottom, spacing: 12) {
-                    ForEach(0..<7, id: \.self) { index in
-                        let height = [0.3, 0.5, 0.35, 0.6, 0.45, 0.8, 0.7][index]
-                        
-                        VStack {
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        gradient: Gradient(colors: [.blue, .purple]),
-                                        startPoint: .bottom,
-                                        endPoint: .top
-                                    )
-                                )
-                                .frame(width: 30, height: 150 * height)
-                                .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
-                            
-                            Text(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][index])
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
+                HStack {
+                    Text("Disk Usage (Last 7 Days)")
+                        .font(.headline)
+
+                    Spacer()
+
+                    // Usage trend indicator
+                    HStack(spacing: 4) {
+                        Image(systemName: diskMonitor.getUsageTrend().icon)
+                            .foregroundColor(diskMonitor.getUsageTrend().color)
+                        Text(diskMonitor.getUsageTrend().description)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
-                .padding(.top)
+
+                let weekHistory = diskMonitor.getHistoryForDays(7)
+
+                if weekHistory.isEmpty {
+                    Text("No historical data available yet")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        ForEach(Array(weekHistory.enumerated()), id: \.offset) { index, snapshot in
+                            let maxUsage = weekHistory.map { $0.usagePercentage }.max() ?? 1.0
+                            let normalizedHeight = maxUsage > 0 ? snapshot.usagePercentage / maxUsage : 0
+
+                            VStack {
+                                Rectangle()
+                                    .fill(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [.blue, .purple]),
+                                            startPoint: .bottom,
+                                            endPoint: .top
+                                        )
+                                    )
+                                    .frame(width: 30, height: 150 * normalizedHeight)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerRadius))
+
+                                Text(dayLabel(for: snapshot.date))
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(.top)
+                }
             }
             .padding()
             .frame(maxWidth: .infinity)
@@ -553,49 +639,38 @@ struct ContentView: View {
             scanInProgress = false
             return
         }
-        
+
         scanInProgress = true
         scanCompleted = false
         problemFiles = []
         scanProgress = 0
         showScanAnimation = true
-        
-        // Start real scan using FileScanner
-        fileScanner.startScan(categories: Array(selectedCategories))
+
+        // Start real scan using FileScanner with selected locations
+        fileScanner.startScan(locations: locationManager.scanLocations, locationManager: locationManager)
     }
     
     // Delete confirmation handler
     func deleteConfirmedFiles() {
-        // In a real app, we would use the FileScanner's deleteFile method
-        // For files that require elevated permissions, we would use the RootHelper
-        
-        var deletedCount = 0
-        var errorCount = 0
-        
+        var deletedFiles: [UUID] = []
+
         for file in filesToDelete {
             if fileScanner.deleteFile(path: file.path) {
-                deletedCount += 1
-            } else {
-                // Try with root privileges if normal deletion fails
-                RootHelper.executeWithPrivileges(command: "rm -rf \"\(file.path)\"") { success in
-                    if success {
-                        deletedCount += 1
-                    } else {
-                        errorCount += 1
-                    }
-                }
+                deletedFiles.append(file.id)
             }
         }
-        
+
         // Remove deleted files from the list
-        problemFiles.removeAll { file in filesToDelete.contains { $0.id == file.id } }
-        
+        problemFiles.removeAll { file in deletedFiles.contains(file.id) }
+
         // Recalculate total size and disk space usage
         calculateTotalSize()
         diskSpaceUsage = calculateDiskSpaceUsage()
-        
-        // Show success toast
-        isShowingDeletionSuccess = true
+
+        // Show success toast if any files were deleted
+        if !deletedFiles.isEmpty {
+            isShowingDeletionSuccess = true
+        }
     }
     
     func calculateTotalSize() {
@@ -630,6 +705,19 @@ struct ContentView: View {
         formatter.allowedUnits = [.useAll]
         formatter.countStyle = .file
         return formatter.string(fromByteCount: Int64(bytes))
+    }
+
+    func dayLabel(for date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            return "Today"
+        } else if calendar.isDateInYesterday(date) {
+            return "Yest"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "EEE"
+            return formatter.string(from: date)
+        }
     }
 }
 
@@ -668,6 +756,7 @@ extension ContentView: FileScannerDelegate {
 struct EnhancedFileRowView: View {
     let file: ProblemFile
     let onDelete: () -> Void
+    let onToggle: (Bool) -> Void
     @State private var isHovered = false
     @State private var showPreview = false
     
@@ -710,7 +799,7 @@ struct EnhancedFileRowView: View {
                 // Selection toggle
                 Toggle("", isOn: Binding(
                     get: { file.isSelected },
-                    set: { _ in }
+                    set: { newValue in onToggle(newValue) }
                 ))
                 .labelsHidden()
                 
@@ -840,100 +929,169 @@ struct RiskLevelBadge: View {
     }
 }
 
-// Category toggle row with icon
-struct CategoryToggleRow: View {
-    let icon: String
-    let title: String
-    @Binding var isSelected: Bool
-    
+// Scan location row
+struct ScanLocationRow: View {
+    let location: ScanLocation
+    let onToggle: () -> Void
+    let onDelete: () -> Void
+    @State private var isHovered = false
+
     var body: some View {
-        Button(action: { isSelected.toggle() }) {
-            HStack {
-                Image(systemName: icon)
-                    .foregroundColor(AppTheme.colorForCategory(title))
-                    .frame(width: 24)
-                
-                Text(title)
-                    .foregroundColor(.primary)
-                
-                Spacer()
-                
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(AppTheme.colorForCategory(title), lineWidth: 2)
-                        .frame(width: 24, height: 24)
-                    
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(AppTheme.colorForCategory(title))
-                            .frame(width: 24, height: 24)
-                        
-                        Image(systemName: "checkmark")
-                            .font(.caption)
-                            .foregroundColor(.white)
-                    }
-                }
+        HStack {
+            // Folder icon
+            Image(systemName: "folder.fill")
+                .foregroundColor(.blue)
+                .frame(width: 24)
+
+            // Location info
+            VStack(alignment: .leading, spacing: 2) {
+                Text(location.name)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+
+                Text(location.path)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
-                    .fill(isSelected ? AppTheme.colorForCategory(title).opacity(0.1) : Color.clear)
-            )
-            .contentShape(Rectangle())
+
+            Spacer()
+
+            // Categories badge
+            if !location.categories.isEmpty {
+                Text(location.categories.joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.gray.opacity(0.1))
+                    .cornerRadius(4)
+            }
+
+            // Toggle
+            Toggle("", isOn: Binding(
+                get: { location.isEnabled },
+                set: { _ in onToggle() }
+            ))
+            .labelsHidden()
+            .toggleStyle(CustomToggleStyle())
+
+            // Delete button
+            if isHovered {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+                .fill(location.isEnabled ? Color.blue.opacity(0.05) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
-// Enhanced rule row view
-struct EnhancedRuleRowView: View {
-    let name: String
-    let description: String
-    let icon: String
-    @State var isEnabled: Bool
-    let schedule: String
-    
+// Real rule row view
+struct RealRuleRowView: View {
+    let rule: CleaningRule
+    let onToggle: () -> Void
+    let onEdit: () -> Void
+    let onExecute: () -> Void
+    @State private var isHovered = false
+
     var body: some View {
         HStack(spacing: AppTheme.standardPadding) {
             // Icon
             ZStack {
                 Circle()
-                    .fill(Color.blue.opacity(0.1))
+                    .fill(rule.isEnabled ? Color.blue.opacity(0.1) : Color.gray.opacity(0.1))
                     .frame(width: 36, height: 36)
-                
-                Image(systemName: icon)
-                    .foregroundColor(.blue)
+
+                Image(systemName: rule.icon)
+                    .foregroundColor(rule.isEnabled ? .blue : .secondary)
             }
-            
+
             // Rule details
             VStack(alignment: .leading, spacing: 2) {
-                Text(name)
+                Text(rule.name)
                     .font(.headline)
-                
-                Text(description)
+                    .foregroundColor(rule.isEnabled ? .primary : .secondary)
+
+                Text(rule.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
-                
-                HStack {
-                    Text(schedule)
+
+                HStack(spacing: 8) {
+                    // Schedule badge
+                    Text(rule.schedule.rawValue)
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(3)
                         .padding(.horizontal, 3)
                         .background(Color.blue.opacity(0.1))
                         .cornerRadius(4)
+
+                    // Last run info
+                    if let lastRun = rule.lastRun {
+                        Text("Last run: \(timeAgo(lastRun))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Never run")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 .padding(.top, 2)
             }
-            
+
             Spacer()
-            
+
+            // Action buttons (show on hover)
+            if isHovered {
+                HStack(spacing: 8) {
+                    Button(action: onEdit) {
+                        Image(systemName: "pencil")
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+
+                    if rule.schedule == .manual {
+                        Button(action: onExecute) {
+                            Image(systemName: "play.fill")
+                                .foregroundColor(.green)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
             // Toggle
-            Toggle("", isOn: $isEnabled)
-                .labelsHidden()
-                .toggleStyle(CustomToggleStyle())
+            Toggle("", isOn: Binding(
+                get: { rule.isEnabled },
+                set: { _ in onToggle() }
+            ))
+            .labelsHidden()
+            .toggleStyle(CustomToggleStyle())
         }
         .padding(10)
+        .background(rule.isEnabled ? Color.blue.opacity(0.02) : Color.clear)
+        .cornerRadius(AppTheme.cornerRadius)
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+
+    private func timeAgo(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
