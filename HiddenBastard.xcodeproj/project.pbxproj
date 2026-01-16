@@ -12,8 +12,11 @@
 		A10003 /* FileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20003 /* FileScanner.swift */; };
 		A10004 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20004 /* Models.swift */; };
 		A10005 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20005 /* AppTheme.swift */; };
-		A10006 /* Assets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20006 /* Assets.swift */; };
 		A10007 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20007 /* SettingsView.swift */; };
+		A10008 /* ScanLocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20008 /* ScanLocationManager.swift */; };
+		A10009 /* DiskSpaceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20009 /* DiskSpaceMonitor.swift */; };
+		A10010 /* CleaningRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20010 /* CleaningRulesEngine.swift */; };
+		A10011 /* RuleEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011 /* RuleEditorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,8 +26,11 @@
 		A20003 /* FileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileScanner.swift; sourceTree = "<group>"; };
 		A20004 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		A20005 /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
-		A20006 /* Assets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Assets.swift; sourceTree = "<group>"; };
 		A20007 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A20008 /* ScanLocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLocationManager.swift; sourceTree = "<group>"; };
+		A20009 /* DiskSpaceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskSpaceMonitor.swift; sourceTree = "<group>"; };
+		A20010 /* CleaningRulesEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningRulesEngine.swift; sourceTree = "<group>"; };
+		A20011 /* RuleEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleEditorView.swift; sourceTree = "<group>"; };
 		A30001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A30002 /* HiddenBastard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HiddenBastard.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -56,12 +62,14 @@
 				A20001 /* HiddenBastardApp.swift */,
 				A20002 /* ContentView.swift */,
 				A20007 /* SettingsView.swift */,
+				A20011 /* RuleEditorView.swift */,
 				A20003 /* FileScanner.swift */,
+				A20008 /* ScanLocationManager.swift */,
+				A20009 /* DiskSpaceMonitor.swift */,
+				A20010 /* CleaningRulesEngine.swift */,
 				A20004 /* Models.swift */,
 				A20005 /* AppTheme.swift */,
-				A20006 /* Assets.swift */,
 			);
-			path = HiddenBastard;
 			sourceTree = "<group>";
 		};
 		A50003 /* Products */ = {
@@ -99,11 +107,11 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 1500;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					A60001 = {
-						CreatedOnToolsVersion = 15.0;
+						CreatedOnToolsVersion = 16.2;
 					};
 				};
 			};
@@ -145,8 +153,11 @@
 				A10003 /* FileScanner.swift in Sources */,
 				A10004 /* Models.swift in Sources */,
 				A10005 /* AppTheme.swift in Sources */,
-				A10006 /* Assets.swift in Sources */,
 				A10007 /* SettingsView.swift in Sources */,
+				A10008 /* ScanLocationManager.swift in Sources */,
+				A10009 /* DiskSpaceMonitor.swift in Sources */,
+				A10010 /* CleaningRulesEngine.swift in Sources */,
+				A10011 /* RuleEditorView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,7 +217,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -263,7 +274,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
@@ -295,7 +306,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiddenbastard.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -314,7 +325,7 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Hidden Bastard";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2025. All rights reserved.";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026. All rights reserved.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -323,7 +334,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiddenbastard.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};

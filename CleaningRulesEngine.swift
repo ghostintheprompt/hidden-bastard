@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 // Manages automated cleaning rules
+@MainActor
 class RulesEngine: ObservableObject {
     @Published var rules: [CleaningRule] = []
 
@@ -69,7 +70,7 @@ class RulesEngine: ObservableObject {
 
         var results: [RuleExecutionResult] = []
 
-        let group = DispatchQueue.Group()
+        let group = DispatchGroup()
 
         for rule in dueRules {
             group.enter()
@@ -79,7 +80,7 @@ class RulesEngine: ObservableObject {
             }
         }
 
-        group.notify(queue: .main) {
+        group.notify(queue: DispatchQueue.main) {
             completion(results)
         }
     }

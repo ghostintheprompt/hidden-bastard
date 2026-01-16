@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 
 // Monitors disk space usage and provides real-time statistics
+@MainActor
 class DiskSpaceMonitor: ObservableObject {
     @Published var totalSpace: UInt64 = 0
     @Published var usedSpace: UInt64 = 0

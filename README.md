@@ -47,7 +47,7 @@ Unlike macOS's built-in storage management that provides limited information, Hi
 
 ## System Requirements
 
-- macOS 11.0 (Big Sur) or later
+- macOS 15.0 (Sequoia) or later (including Tahoe 26.x)
 - Admin privileges for certain cleaning operations
 
 ## Installation
