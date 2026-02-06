@@ -30,19 +30,20 @@ struct ContentView: View {
                     HStack {
                         AppIcon(size: 42)
                             .padding(.trailing, 8)
-                        
-                        Text("Hidden Bastard File Deleter")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
+
+                        Text("HIDDEN BASTARD")
+                            .font(.system(.title2, design: .monospaced))
+                            .fontWeight(.bold)
+                            .foregroundColor(AppTheme.primaryColor)
+
                         Spacer()
-                        
+
                         Button(action: {
                             isShowingSettings = true
                         }) {
                             Image(systemName: "gear")
                                 .imageScale(.large)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(AppTheme.primaryColor)
                         }
                         .buttonStyle(.plain)
                     }
