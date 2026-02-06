@@ -2,38 +2,40 @@ import SwiftUI
 
 struct AppTheme {
     // Standard spacing and dimensions
-    static let cornerRadius: CGFloat = 8
-    static let largeCornerRadius: CGFloat = 12
+    static let cornerRadius: CGFloat = 0 // Sharp edges, terminal aesthetic
+    static let largeCornerRadius: CGFloat = 0
     static let standardPadding: CGFloat = 12
     static let smallPadding: CGFloat = 6
     static let largePadding: CGFloat = 24
+
+    // Ghost in the Prompt cyber aesthetic
+    static let primaryColor = Color(red: 0/255, green: 255/255, blue: 255/255) // Cyan #00FFFF
+    static let dangerColor = Color(red: 255/255, green: 0/255, blue: 85/255) // Hot pink #FF0055
+    static let warningColor = Color(red: 252/255, green: 211/255, blue: 77/255) // Yellow #FCD34D
+    static let successColor = Color(red: 0/255, green: 255/255, blue: 127/255) // Neon green #00FF7F
+    static let neutralColor = Color(red: 136/255, green: 136/255, blue: 136/255) // Gray
+    static let backgroundColor = Color(red: 0/255, green: 0/255, blue: 0/255) // Black
+    static let surfaceColor = Color(red: 17/255, green: 17/255, blue: 17/255) // Near black
     
-    // Color palette
-    static let primaryColor = Color.blue
-    static let dangerColor = Color.red
-    static let warningColor = Color.orange
-    static let successColor = Color.green
-    static let neutralColor = Color.gray
-    
-    // Category-specific colors and icons
+    // Category-specific colors and icons (cyber aesthetic)
     static func colorForCategory(_ category: String) -> Color {
         switch category {
         case "Apple Media Analysis":
-            return Color.blue
+            return primaryColor // Cyan
         case "Incomplete Downloads":
-            return Color.orange
+            return warningColor // Yellow
         case "Application Caches":
-            return Color.purple
+            return Color(red: 168/255, green: 85/255, blue: 247/255) // Purple #A855F7
         case "Developer Files":
-            return Color.teal
+            return successColor // Neon green
         case "System Logs":
-            return Color.gray
+            return neutralColor // Gray
         case "Docker":
-            return Color.cyan
+            return primaryColor // Cyan
         case "Trash Items":
-            return Color.red
+            return dangerColor // Hot pink
         default:
-            return Color.secondary
+            return neutralColor
         }
     }
     
@@ -59,41 +61,51 @@ struct AppTheme {
     }
 }
 
-// Custom button style with accent color
+// Custom button style (Ghost cyber aesthetic - sharp edges, neon glow)
 struct AccentButtonStyle: ButtonStyle {
     var isDestructive: Bool = false
-    
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(.white)
+            .font(.system(.body, design: .monospaced))
+            .fontWeight(.semibold)
+            .foregroundColor(AppTheme.backgroundColor)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
+                Rectangle() // Sharp edges
                     .fill(isDestructive ? AppTheme.dangerColor : AppTheme.primaryColor)
                     .opacity(configuration.isPressed ? 0.8 : 1.0)
+                    .shadow(color: (isDestructive ? AppTheme.dangerColor : AppTheme.primaryColor).opacity(0.5), radius: configuration.isPressed ? 5 : 10)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
     }
 }
 
-// Custom toggle style
+// Custom toggle style (Ghost cyber aesthetic)
 struct CustomToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack {
             configuration.label
-            
+                .font(.system(.body, design: .monospaced))
+
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                RoundedRectangle(cornerRadius: 15)
-                    .fill(configuration.isOn ? AppTheme.primaryColor : Color.gray.opacity(0.3))
-                    .frame(width: 50, height: 30)
-                
-                RoundedRectangle(cornerRadius: 13)
-                    .fill(Color.white)
-                    .padding(4)
-                    .frame(width: 30, height: 30)
-                    .offset(x: configuration.isOn ? 10 : -10)
+                Rectangle() // Sharp edges
+                    .fill(configuration.isOn ? AppTheme.primaryColor.opacity(0.3) : AppTheme.surfaceColor)
+                    .frame(width: 50, height: 26)
+                    .overlay(
+                        Rectangle()
+                            .stroke(configuration.isOn ? AppTheme.primaryColor : AppTheme.neutralColor, lineWidth: 1)
+                    )
+
+                Rectangle()
+                    .fill(configuration.isOn ? AppTheme.primaryColor : AppTheme.neutralColor)
+                    .frame(width: 20, height: 20)
+                    .padding(3)
+                    .offset(x: configuration.isOn ? 12 : -12)
             }
             .onTapGesture {
-                withAnimation(.spring()) {
+                withAnimation(.spring(response: 0.3)) {
                     configuration.isOn.toggle()
                 }
             }
@@ -121,25 +133,23 @@ struct PulsingAnimation: ViewModifier {
     }
 }
 
-// App icon view
+// App icon view (Ghost cyber aesthetic)
 struct AppIcon: View {
     let size: CGFloat
-    
+
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: size / 5)
-                .fill(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.blue, Color.purple]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+            Rectangle() // Sharp edges, terminal aesthetic
+                .fill(AppTheme.backgroundColor)
                 .frame(width: size, height: size)
-            
-            Image(systemName: "externaldrive.badge.xmark")
-                .font(.system(size: size / 2))
-                .foregroundColor(.white)
+                .overlay(
+                    Rectangle()
+                        .stroke(AppTheme.primaryColor, lineWidth: 2)
+                )
+
+            Image(systemName: "trash.slash")
+                .font(.system(size: size / 2, weight: .bold, design: .monospaced))
+                .foregroundColor(AppTheme.primaryColor)
         }
     }
 }

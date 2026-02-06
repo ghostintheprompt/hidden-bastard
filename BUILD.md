@@ -4,8 +4,8 @@ This guide walks you through building and distributing Hidden Bastard as an attr
 
 ## Prerequisites
 
-1. **macOS 11.0 (Big Sur) or later**
-2. **Xcode 13.0 or later** (download from Mac App Store)
+1. **macOS 13.0 (Ventura) or later**
+2. **Xcode 15.0 or later** (download from Mac App Store)
 3. **Apple Developer Account** (for code signing and distribution)
    - Individual: Free for development, $99/year for distribution
    - Organization: $99/year
@@ -226,7 +226,7 @@ Based on similar utilities:
 
 Before release:
 
-- [ ] Test on macOS 11, 12, 13, 14, 15
+- [ ] Test on macOS 13 (Ventura), 14 (Sonoma), 15 (Sequoia)
 - [ ] Test Full Disk Access permissions
 - [ ] Test file deletion (create test files first!)
 - [ ] Test license activation/deactivation
