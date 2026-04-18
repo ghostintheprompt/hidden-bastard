@@ -5,11 +5,30 @@ import AppKit
 @MainActor
 class ScanLocationManager: ObservableObject {
     @Published var scanLocations: [ScanLocation] = []
+    @Published var excludedPaths: [String] = []
 
     private let bookmarksKey = "com.hiddenbastard.scanlocations.bookmarks"
+    private let exclusionsKey = "com.hiddenbastard.scanlocations.exclusions"
 
     init() {
         loadSavedLocations()
+        loadExclusions()
+    }
+    
+    func addExclusion(path: String) {
+        if !excludedPaths.contains(path) {
+            excludedPaths.append(path)
+            saveExclusions()
+        }
+    }
+    
+    func removeExclusion(at offsets: IndexSet) {
+        excludedPaths.remove(atOffsets: offsets)
+        saveExclusions()
+    }
+    
+    func isPathExcluded(_ path: String) -> Bool {
+        return excludedPaths.contains { path.hasPrefix($0) }
     }
 
     // Add a new location using NSOpenPanel
@@ -165,6 +184,10 @@ class ScanLocationManager: ObservableObject {
             UserDefaults.standard.set(encoded, forKey: bookmarksKey)
         }
     }
+    
+    private func saveExclusions() {
+        UserDefaults.standard.set(excludedPaths, forKey: exclusionsKey)
+    }
 
     // Load locations from UserDefaults
     private func loadSavedLocations() {
@@ -180,6 +203,15 @@ class ScanLocationManager: ObservableObject {
         } else {
             scanLocations = getDefaultLocations()
         }
+    }
+    
+    private func loadExclusions() {
+        excludedPaths = UserDefaults.standard.stringArray(forKey: exclusionsKey) ?? [
+            "/System",
+            "/Library",
+            "/bin",
+            "/sbin"
+        ]
     }
 
     // Remove a location

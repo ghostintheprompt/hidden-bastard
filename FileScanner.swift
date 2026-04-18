@@ -2,7 +2,7 @@ import Foundation
 
 // The main file scanning engine
 class FileScanner {
-    // Delegate to report progress and findings
+    // Delegate to report progress and findings (Legacy, for backward compatibility)
     var delegate: FileScannerDelegate?
 
     // Scan progress
@@ -26,84 +26,72 @@ class FileScanner {
         "Trash Items": 100_000_000               // 100MB
     ]
 
+    // MARK: - Modern Async API
+
+    /// Scans multiple locations in parallel using TaskGroups
+    func scan(locations: [ScanLocation], locationManager: ScanLocationManager, isSimulation: Bool = false) async -> [ProblemFile] {
+        isScanning = true
+        shouldCancel = false
+        
+        let enabledLocations = locations.filter { $0.isEnabled }
+        var allResults: [ProblemFile] = []
+        
+        await withTaskGroup(of: [ProblemFile].self) { group in
+            for location in enabledLocations {
+                group.addTask {
+                    return await self.scanLocation(location, locationManager: locationManager)
+                }
+            }
+            
+            for await results in group {
+                allResults.append(contentsOf: results)
+            }
+        }
+        
+        isScanning = false
+        return allResults
+    }
+
+    private func scanLocation(_ location: ScanLocation, locationManager: ScanLocationManager) async -> [ProblemFile] {
+        guard let url = locationManager.resolveBookmark(for: location) else {
+            return []
+        }
+
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let primaryCategory = location.categories.first ?? "Other"
+        let sizeThreshold = self.categorySizeThresholds[primaryCategory] ?? 10_000_000
+        let pattern = self.categoryPatterns[primaryCategory]
+        let riskLevel = self.riskLevelForCategory(primaryCategory)
+
+        return await withCheckedContinuation { continuation in
+            let results = self.scanDirectory(
+                path: url.path,
+                recursive: true,
+                sizeThreshold: sizeThreshold,
+                pattern: pattern,
+                category: primaryCategory,
+                riskLevel: riskLevel
+            )
+            continuation.resume(returning: results)
+        }
+    }
+
+    // MARK: - Legacy Delegate API
+
     // Start scanning user-selected locations
     func startScan(locations: [ScanLocation], locationManager: ScanLocationManager) {
         guard !isScanning else { return }
 
-        isScanning = true
-        shouldCancel = false
-
-        // Run on background thread
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-
-            // Filter to enabled locations only
-            let enabledLocations = locations.filter { $0.isEnabled }
-
-            if let delegate = self.delegate {
-                Task { @MainActor in
-                    delegate.scannerDidStartScan()
-                }
-            }
-
-            var problemFiles: [ProblemFile] = []
-
-            // Process each location
-            for (index, location) in enabledLocations.enumerated() {
-                // Check for cancellation
-                if self.shouldCancel {
-                    break
-                }
-
-                let progress = Float(index) / Float(max(enabledLocations.count, 1))
-                if let delegate = self.delegate {
-                    Task { @MainActor in
-                        delegate.scannerDidUpdateProgress(progress: progress)
-                    }
-                }
-
-                // Resolve bookmark to get access
-                guard let url = locationManager.resolveBookmark(for: location) else {
-                    continue
-                }
-
-                // Start accessing security-scoped resource
-                let accessing = url.startAccessingSecurityScopedResource()
-                defer {
-                    if accessing {
-                        url.stopAccessingSecurityScopedResource()
-                    }
-                }
-
-                // Determine the primary category for this location
-                let primaryCategory = location.categories.first ?? "Other"
-
-                // Get threshold for this category
-                let sizeThreshold = self.categorySizeThresholds[primaryCategory] ?? 10_000_000
-
-                // Get pattern for this category (if any)
-                let pattern = self.categoryPatterns[primaryCategory]
-
-                // Determine risk level based on category
-                let riskLevel = self.riskLevelForCategory(primaryCategory)
-
-                // Scan the directory
-                let files = self.scanDirectory(
-                    path: url.path,
-                    recursive: true,
-                    sizeThreshold: sizeThreshold,
-                    pattern: pattern,
-                    category: primaryCategory,
-                    riskLevel: riskLevel
-                )
-
-                problemFiles.append(contentsOf: files)
-            }
-
-            // Post results on main thread
-            DispatchQueue.main.async {
-                self.isScanning = false
-                self.delegate?.scannerDidFinishScan(files: problemFiles)
+        Task {
+            let files = await scan(locations: locations, locationManager: locationManager)
+            await MainActor.run {
+                self.delegate?.scannerDidFinishScan(files: files)
             }
         }
     }
@@ -270,7 +258,12 @@ class FileScanner {
     }
 
     // Delete a file or directory
-    func deleteFile(path: String) -> Bool {
+    func deleteFile(path: String, isSimulation: Bool = false) -> Bool {
+        if isSimulation {
+            print("[Simulation] Would delete: \(path)")
+            return true
+        }
+        
         do {
             try FileManager.default.removeItem(atPath: path)
             return true

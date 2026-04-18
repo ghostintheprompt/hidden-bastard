@@ -191,6 +191,9 @@ struct RuleEditorView: View {
 struct TargetEditorRow: View {
     @Binding var target: RuleTarget
     let onDelete: () -> Void
+    
+    @State private var testPath: String = ""
+    @State private var testResult: Bool? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -211,19 +214,49 @@ struct TargetEditorRow: View {
             TextField("Path to scan", text: $target.path)
                 .textFieldStyle(.roundedBorder)
 
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("File Pattern (regex)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("File Pattern (regex)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
 
+                HStack {
                     TextField("e.g., \\.tmp$", text: Binding<String>(
                         get: { target.pattern ?? "" },
                         set: { target.pattern = $0.isEmpty ? nil : $0 }
                     ))
                     .textFieldStyle(.roundedBorder)
+                    
+                    if let pattern = target.pattern, !pattern.isEmpty {
+                        Button("TEST") {
+                            testRegex()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
+            }
+            
+            if let pattern = target.pattern, !pattern.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    TextField("Test path or filename...", text: $testPath)
+                        .textFieldStyle(.roundedBorder)
+                        .controlSize(.small)
+                    
+                    if let result = testResult {
+                        HStack {
+                            Image(systemName: result ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            Text(result ? "MATCH" : "NO MATCH")
+                        }
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(result ? .green : .red)
+                    }
+                }
+                .padding(8)
+                .background(Color.black.opacity(0.1))
+                .cornerRadius(4)
+            }
 
+            HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Action")
                         .font(.caption)
@@ -237,9 +270,7 @@ struct TargetEditorRow: View {
                     .pickerStyle(.menu)
                     .frame(maxWidth: .infinity)
                 }
-            }
 
-            HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Min Size (MB)")
                         .font(.caption)
@@ -268,6 +299,17 @@ struct TargetEditorRow: View {
         .padding()
         .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
         .cornerRadius(AppTheme.cornerRadius)
+    }
+    
+    private func testRegex() {
+        guard let pattern = target.pattern, 
+              let regex = try? NSRegularExpression(pattern: pattern) else {
+            testResult = false
+            return
+        }
+        
+        let range = NSRange(location: 0, length: testPath.utf16.count)
+        testResult = regex.firstMatch(in: testPath, range: range) != nil
     }
 }
 

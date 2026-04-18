@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 // Monitors disk space usage and provides real-time statistics
 @MainActor
@@ -9,13 +10,39 @@ class DiskSpaceMonitor: ObservableObject {
     @Published var freeSpace: UInt64 = 0
     @Published var usagePercentage: Double = 0.0
     @Published var usageHistory: [DiskUsageSnapshot] = []
+    
+    // User-defined threshold for notifications (e.g., 0.1 for 10%)
+    @Published var notificationThreshold: Double = 0.1
+    @Published var isMonitoringEnabled: Bool = true
 
     private let historyKey = "com.hiddenbastard.diskusage.history"
+    private let settingsKey = "com.hiddenbastard.diskusage.settings"
     private let maxHistoryDays = 30
+    private var monitorTimer: Timer?
 
     init() {
         loadHistory()
+        loadSettings()
         refresh()
+        setupBackgroundMonitoring()
+        requestNotificationPermission()
+    }
+    
+    private func setupBackgroundMonitoring() {
+        // Refresh every 30 minutes in background
+        monitorTimer = Timer.scheduledTimer(withTimeInterval: 1800, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkDiskSpaceAndNotify()
+            }
+        }
+    }
+    
+    private func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("Notification permission error: \(error)")
+            }
+        }
     }
 
     // Refresh disk space statistics
@@ -32,12 +59,10 @@ class DiskSpaceMonitor: ObservableObject {
 
             if let total = values.volumeTotalCapacity,
                let available = values.volumeAvailableCapacity {
-                DispatchQueue.main.async {
-                    self.totalSpace = UInt64(total)
-                    self.freeSpace = UInt64(available)
-                    self.usedSpace = self.totalSpace - self.freeSpace
-                    self.usagePercentage = Double(self.usedSpace) / Double(self.totalSpace)
-                }
+                self.totalSpace = UInt64(total)
+                self.freeSpace = UInt64(available)
+                self.usedSpace = self.totalSpace - self.freeSpace
+                self.usagePercentage = Double(self.usedSpace) / Double(self.totalSpace)
 
                 // Record snapshot
                 recordSnapshot()
@@ -45,6 +70,30 @@ class DiskSpaceMonitor: ObservableObject {
         } catch {
             print("Error getting disk space: \(error)")
         }
+    }
+    
+    func checkDiskSpaceAndNotify() {
+        refresh()
+        
+        let freePercentage = 1.0 - usagePercentage
+        if freePercentage < notificationThreshold && isMonitoringEnabled {
+            sendLowDiskSpaceNotification(freePercentage: freePercentage)
+        }
+    }
+    
+    private func sendLowDiskSpaceNotification(freePercentage: Double) {
+        let content = UNMutableNotificationContent()
+        content.title = "Low Disk Space"
+        content.body = String(format: "Your disk is almost full (%.1f%% free). Run Hidden Bastard to free up space.", freePercentage * 100)
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "com.hiddenbastard.lowdiskspace",
+            content: content,
+            trigger: nil // Deliver immediately
+        )
+        
+        UNUserNotificationCenter.current().add(request)
     }
 
     // Get usage for a specific path
@@ -132,6 +181,15 @@ class DiskSpaceMonitor: ObservableObject {
         if let encoded = try? encoder.encode(usageHistory) {
             UserDefaults.standard.set(encoded, forKey: historyKey)
         }
+        saveSettings()
+    }
+    
+    private func saveSettings() {
+        let settings: [String: Any] = [
+            "notificationThreshold": notificationThreshold,
+            "isMonitoringEnabled": isMonitoringEnabled
+        ]
+        UserDefaults.standard.set(settings, forKey: settingsKey)
     }
 
     // Load history from UserDefaults
@@ -143,6 +201,13 @@ class DiskSpaceMonitor: ObservableObject {
         let decoder = JSONDecoder()
         if let decoded = try? decoder.decode([DiskUsageSnapshot].self, from: data) {
             usageHistory = decoded
+        }
+    }
+    
+    private func loadSettings() {
+        if let settings = UserDefaults.standard.dictionary(forKey: settingsKey) {
+            notificationThreshold = settings["notificationThreshold"] as? Double ?? 0.1
+            isMonitoringEnabled = settings["isMonitoringEnabled"] as? Bool ?? true
         }
     }
 

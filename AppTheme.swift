@@ -1,14 +1,15 @@
 import SwiftUI
+import AppKit
 
 struct AppTheme {
     // Standard spacing and dimensions
-    static let cornerRadius: CGFloat = 0 // Sharp edges, terminal aesthetic
-    static let largeCornerRadius: CGFloat = 0
+    static let cornerRadius: CGFloat = 8 // Slightly rounded for modern feel
+    static let largeCornerRadius: CGFloat = 12
     static let standardPadding: CGFloat = 12
     static let smallPadding: CGFloat = 6
     static let largePadding: CGFloat = 24
 
-    // Ghost in the Prompt cyber aesthetic
+    // Ghost in the Prompt cyber aesthetic (refined)
     static let primaryColor = Color(red: 0/255, green: 255/255, blue: 255/255) // Cyan #00FFFF
     static let dangerColor = Color(red: 255/255, green: 0/255, blue: 85/255) // Hot pink #FF0055
     static let warningColor = Color(red: 252/255, green: 211/255, blue: 77/255) // Yellow #FCD34D
@@ -17,23 +18,28 @@ struct AppTheme {
     static let backgroundColor = Color(red: 0/255, green: 0/255, blue: 0/255) // Black
     static let surfaceColor = Color(red: 17/255, green: 17/255, blue: 17/255) // Near black
     
-    // Category-specific colors and icons (cyber aesthetic)
+    // Glassmorphic background
+    static var glassBackground: some View {
+        VisualEffectView(material: .sidebar, blendingMode: .behindWindow)
+    }
+    
+    // Category-specific colors and icons
     static func colorForCategory(_ category: String) -> Color {
         switch category {
         case "Apple Media Analysis":
-            return primaryColor // Cyan
+            return primaryColor
         case "Incomplete Downloads":
-            return warningColor // Yellow
+            return warningColor
         case "Application Caches":
-            return Color(red: 168/255, green: 85/255, blue: 247/255) // Purple #A855F7
+            return Color(red: 168/255, green: 85/255, blue: 247/255)
         case "Developer Files":
-            return successColor // Neon green
+            return successColor
         case "System Logs":
-            return neutralColor // Gray
+            return neutralColor
         case "Docker":
-            return primaryColor // Cyan
+            return primaryColor
         case "Trash Items":
-            return dangerColor // Hot pink
+            return dangerColor
         default:
             return neutralColor
         }
@@ -61,7 +67,26 @@ struct AppTheme {
     }
 }
 
-// Custom button style (Ghost cyber aesthetic - sharp edges, neon glow)
+// VisualEffectView wrapper for NSVisualEffectView
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+// Custom button style (Refined cyber aesthetic)
 struct AccentButtonStyle: ButtonStyle {
     var isDestructive: Bool = false
 
@@ -73,16 +98,16 @@ struct AccentButtonStyle: ButtonStyle {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(
-                Rectangle() // Sharp edges
+                RoundedRectangle(cornerRadius: AppTheme.cornerRadius)
                     .fill(isDestructive ? AppTheme.dangerColor : AppTheme.primaryColor)
                     .opacity(configuration.isPressed ? 0.8 : 1.0)
-                    .shadow(color: (isDestructive ? AppTheme.dangerColor : AppTheme.primaryColor).opacity(0.5), radius: configuration.isPressed ? 5 : 10)
+                    .shadow(color: (isDestructive ? AppTheme.dangerColor : AppTheme.primaryColor).opacity(0.3), radius: configuration.isPressed ? 5 : 10)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
     }
 }
 
-// Custom toggle style (Ghost cyber aesthetic)
+// Custom toggle style
 struct CustomToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack {
@@ -90,19 +115,18 @@ struct CustomToggleStyle: ToggleStyle {
                 .font(.system(.body, design: .monospaced))
 
             ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                Rectangle() // Sharp edges
+                RoundedRectangle(cornerRadius: 13)
                     .fill(configuration.isOn ? AppTheme.primaryColor.opacity(0.3) : AppTheme.surfaceColor)
                     .frame(width: 50, height: 26)
                     .overlay(
-                        Rectangle()
+                        RoundedRectangle(cornerRadius: 13)
                             .stroke(configuration.isOn ? AppTheme.primaryColor : AppTheme.neutralColor, lineWidth: 1)
                     )
 
-                Rectangle()
+                Circle()
                     .fill(configuration.isOn ? AppTheme.primaryColor : AppTheme.neutralColor)
                     .frame(width: 20, height: 20)
                     .padding(3)
-                    .offset(x: configuration.isOn ? 12 : -12)
             }
             .onTapGesture {
                 withAnimation(.spring(response: 0.3)) {
@@ -133,17 +157,17 @@ struct PulsingAnimation: ViewModifier {
     }
 }
 
-// App icon view (Ghost cyber aesthetic)
+// App icon view
 struct AppIcon: View {
     let size: CGFloat
 
     var body: some View {
         ZStack {
-            Rectangle() // Sharp edges, terminal aesthetic
+            RoundedRectangle(cornerRadius: size * 0.22)
                 .fill(AppTheme.backgroundColor)
                 .frame(width: size, height: size)
                 .overlay(
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: size * 0.22)
                         .stroke(AppTheme.primaryColor, lineWidth: 2)
                 )
 

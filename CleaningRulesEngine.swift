@@ -1,16 +1,53 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 // Manages automated cleaning rules
 @MainActor
 class RulesEngine: ObservableObject {
     @Published var rules: [CleaningRule] = []
+    @Published var isAutoCleaningEnabled: Bool = false
 
     private let rulesKey = "com.hiddenbastard.cleaningrules"
-    private let lastRunKey = "com.hiddenbastard.cleaningrules.lastrun"
+    private let settingsKey = "com.hiddenbastard.cleaningrules.settings"
+    private var schedulerTimer: Timer?
 
     init() {
         loadRules()
+        loadSettings()
+        setupScheduler()
+    }
+    
+    private func setupScheduler() {
+        // Check for due rules every hour
+        schedulerTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                if self?.isAutoCleaningEnabled == true {
+                    self?.checkAndExecuteDueRules { results in
+                        if !results.isEmpty {
+                            self?.notifyAutoCleaningResults(results)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func notifyAutoCleaningResults(_ results: [RuleExecutionResult]) {
+        let totalFreed = results.reduce(0) { $0 + $1.spaceFreed }
+        let formattedSize = ByteCountFormatter.string(fromByteCount: Int64(totalFreed), countStyle: .file)
+        
+        let content = UNMutableNotificationContent()
+        content.title = "Silent Maintenance Complete"
+        content.body = "Successfully freed up \(formattedSize) of disk space."
+        content.sound = .default
+        
+        let request = UNNotificationRequest(
+            identifier: "com.hiddenbastard.autocleaning",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
     }
 
     // Add a new rule
@@ -43,15 +80,16 @@ class RulesEngine: ObservableObject {
 
     // Execute a specific rule
     func executeRule(_ rule: CleaningRule, completion: @escaping (RuleExecutionResult) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = self.performRuleExecution(rule)
+        let ruleToExecute = rule
+        
+        Task.detached(priority: .background) {
+            let result = await self.performRuleExecutionAsync(ruleToExecute)
 
-            // Update last run time
-            var updatedRule = rule
-            updatedRule.lastRun = Date()
-            self.updateRule(updatedRule)
-
-            DispatchQueue.main.async {
+            await MainActor.run {
+                // Update last run time
+                var updatedRule = ruleToExecute
+                updatedRule.lastRun = Date()
+                self.updateRule(updatedRule)
                 completion(result)
             }
         }
@@ -68,19 +106,17 @@ class RulesEngine: ObservableObject {
             return
         }
 
-        var results: [RuleExecutionResult] = []
-
-        let group = DispatchGroup()
-
-        for rule in dueRules {
-            group.enter()
-            executeRule(rule) { result in
+        Task {
+            var results: [RuleExecutionResult] = []
+            for rule in dueRules {
+                let result = await performRuleExecutionAsync(rule)
                 results.append(result)
-                group.leave()
+                
+                // Update last run
+                var updatedRule = rule
+                updatedRule.lastRun = Date()
+                self.updateRule(updatedRule)
             }
-        }
-
-        group.notify(queue: DispatchQueue.main) {
             completion(results)
         }
     }
@@ -109,8 +145,8 @@ class RulesEngine: ObservableObject {
         }
     }
 
-    // Perform the actual rule execution
-    private func performRuleExecution(_ rule: CleaningRule) -> RuleExecutionResult {
+    // Perform the actual rule execution asynchronously
+    private func performRuleExecutionAsync(_ rule: CleaningRule) async -> RuleExecutionResult {
         var deletedFiles: [String] = []
         var freedSpace: UInt64 = 0
         var errors: [String] = []
@@ -152,7 +188,6 @@ class RulesEngine: ObservableObject {
 
                     case .compress:
                         // Compression would be implemented here
-                        // For now, just log it
                         print("Would compress: \(file)")
                     }
                 } catch {
@@ -240,6 +275,11 @@ class RulesEngine: ObservableObject {
         if let encoded = try? encoder.encode(rules) {
             UserDefaults.standard.set(encoded, forKey: rulesKey)
         }
+        saveSettings()
+    }
+    
+    private func saveSettings() {
+        UserDefaults.standard.set(isAutoCleaningEnabled, forKey: settingsKey)
     }
 
     // Load rules from UserDefaults
@@ -256,6 +296,10 @@ class RulesEngine: ObservableObject {
         } else {
             rules = getDefaultRules()
         }
+    }
+    
+    private func loadSettings() {
+        isAutoCleaningEnabled = UserDefaults.standard.bool(forKey: settingsKey)
     }
 
     // Get default rules for first-time users
