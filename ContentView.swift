@@ -283,10 +283,10 @@ struct Sidebar: View {
             Spacer().frame(height: 20)
             
             SidebarItem(icon: "chart.bar.xaxis", title: "DASHBOARD", isSelected: selectedTab == 0) { selectedTab = 0 }
-            SidebarItem(icon: "list.bullet.rectangle", title: "DETECTION LOG", isSelected: selectedTab == 1) { selectedTab = 1 }
-            SidebarItem(icon: "clock.arrow.circlepath", title: "DELETION HISTORY", isSelected: selectedTab == 2) { selectedTab = 2 }
-            SidebarItem(icon: "bolt.shield", title: "CLEANING RULES", isSelected: selectedTab == 3) { selectedTab = 3 }
-            SidebarItem(icon: "gearshape", title: "CONFIGURATION", isSelected: selectedTab == 4) { selectedTab = 4 }
+            SidebarItem(icon: "list.bullet.rectangle", title: "FOUND FILES", isSelected: selectedTab == 1) { selectedTab = 1 }
+            SidebarItem(icon: "clock.arrow.circlepath", title: "HISTORY", isSelected: selectedTab == 2) { selectedTab = 2 }
+            SidebarItem(icon: "timer", title: "AUTO-CLEAN", isSelected: selectedTab == 3) { selectedTab = 3 }
+            SidebarItem(icon: "gearshape", title: "SETTINGS", isSelected: selectedTab == 4) { selectedTab = 4 }
             
             Spacer()
             
