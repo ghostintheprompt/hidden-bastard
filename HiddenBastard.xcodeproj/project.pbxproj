@@ -18,6 +18,8 @@
 		A10010 /* CleaningRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20010 /* CleaningRulesEngine.swift */; };
 		A10011 /* RuleEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011 /* RuleEditorView.swift */; };
 		A10012 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20012 /* AppState.swift */; };
+		A10013 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20013 /* Assets.xcassets */; };
+		A10014 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20014 /* UpdateChecker.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +37,8 @@
 		A20012 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A30001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A30002 /* HiddenBastard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HiddenBastard.entitlements; sourceTree = "<group>"; };
+		A20013 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20014 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +76,8 @@
 				A20004 /* Models.swift */,
 				A20005 /* AppTheme.swift */,
 				A20012 /* AppState.swift */,
+				A20013 /* Assets.xcassets */,
+				A20014 /* UpdateChecker.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -141,6 +147,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10013 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +169,7 @@
 				A10010 /* CleaningRulesEngine.swift in Sources */,
 				A10011 /* RuleEditorView.swift in Sources */,
 				A10012 /* AppState.swift in Sources */,
+				A10014 /* UpdateChecker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

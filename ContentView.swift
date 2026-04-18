@@ -34,8 +34,6 @@ struct ContentView: View {
                             FileListView(state: state)
                         } else if selectedTab == 2 {
                             DeletionHistoryView(state: state)
-                        } else if selectedTab == 3 {
-                            RulesListView(rulesEngine: state.rulesEngine)
                         } else {
                             SettingsView()
                         }
@@ -68,9 +66,6 @@ struct DashboardView: View {
                 
                 // Scan Trigger
                 ScanSection(state: state)
-                
-                // Quick Actions
-                QuickActionsSection(state: state)
                 
                 Spacer()
             }
@@ -258,9 +253,9 @@ struct HeaderView: View {
                     .fontWeight(.bold)
                     .foregroundColor(AppTheme.primaryColor)
                 
-                Text("V 2.0 // SYSTEM MAINTENANCE ACTIVE")
+                Text(state.isScanning ? "SCANNING..." : "V 1.0 // READY")
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundColor(AppTheme.successColor)
+                    .foregroundColor(state.isScanning ? AppTheme.warningColor : AppTheme.successColor)
             }
             
             Spacer()
@@ -285,21 +280,10 @@ struct Sidebar: View {
             SidebarItem(icon: "chart.bar.xaxis", title: "DASHBOARD", isSelected: selectedTab == 0) { selectedTab = 0 }
             SidebarItem(icon: "list.bullet.rectangle", title: "FOUND FILES", isSelected: selectedTab == 1) { selectedTab = 1 }
             SidebarItem(icon: "clock.arrow.circlepath", title: "HISTORY", isSelected: selectedTab == 2) { selectedTab = 2 }
-            SidebarItem(icon: "timer", title: "AUTO-CLEAN", isSelected: selectedTab == 3) { selectedTab = 3 }
-            SidebarItem(icon: "gearshape", title: "SETTINGS", isSelected: selectedTab == 4) { selectedTab = 4 }
+            SidebarItem(icon: "gearshape", title: "SETTINGS", isSelected: selectedTab == 3) { selectedTab = 3 }
             
             Spacer()
             
-            // System Status info
-            VStack(alignment: .leading, spacing: 4) {
-                Text("LINK STATUS: STABLE")
-                    .font(.system(size: 9, design: .monospaced))
-                Text("ENCRYPTION: AES-256")
-                    .font(.system(size: 9, design: .monospaced))
-            }
-            .foregroundColor(AppTheme.successColor)
-            .padding(16)
-            .opacity(0.6)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

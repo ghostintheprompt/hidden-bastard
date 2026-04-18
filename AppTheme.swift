@@ -162,18 +162,11 @@ struct AppIcon: View {
     let size: CGFloat
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.22)
-                .fill(AppTheme.backgroundColor)
-                .frame(width: size, height: size)
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.22)
-                        .stroke(AppTheme.primaryColor, lineWidth: 2)
-                )
-
-            Image(systemName: "trash.slash")
-                .font(.system(size: size / 2, weight: .bold, design: .monospaced))
-                .foregroundColor(AppTheme.primaryColor)
-        }
+        Image("AppLogo")
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.22))
     }
 }

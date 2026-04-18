@@ -53,7 +53,7 @@ struct SettingsView: View {
                                     .font(.system(.body, design: .monospaced))
                                     .fontWeight(.bold)
                                     .foregroundColor(.white)
-                                Text("V 2.0 // macOS Junk File Eliminator")
+                                Text("V 1.0.0 // macOS Junk File Eliminator")
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundColor(AppTheme.neutralColor)
                             }
