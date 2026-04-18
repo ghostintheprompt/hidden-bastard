@@ -8,6 +8,7 @@ class FileScanner {
     // Scan progress
     private(set) var isScanning = false
     private var shouldCancel = false
+    var isCancelled: Bool { shouldCancel }
 
     // Pattern-based rules for categorizing files
     private let categoryPatterns: [String: String] = [

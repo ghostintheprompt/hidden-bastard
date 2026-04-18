@@ -7,6 +7,8 @@ class AppState: ObservableObject {
     @Published var problemFiles: [ProblemFile] = []
     @Published var isScanning: Bool = false
     @Published var scanProgress: Float = 0.0
+    @Published var scanStatus: String = ""
+    @Published var scanLog: [String] = []
     
     // Services
     let scanner = FileScanner()
@@ -34,17 +36,43 @@ class AppState: ObservableObject {
         scanProgress = 0
         problemFiles = []
         selectedFileIds = []
-        
-        Task {
-            // This will be updated to use the new async FileScanner
-            scanner.delegate = self
-            scanner.startScan(locations: locationManager.scanLocations, locationManager: locationManager)
+
+        Task { @MainActor in
+            let locations = locationManager.scanLocations.filter { $0.isEnabled }
+            let total = Float(max(locations.count, 1))
+            var completed = 0
+            var allFiles: [ProblemFile] = []
+            scanLog = []
+
+            scanLog.append("Starting scan of \(locations.count) location(s)...")
+
+            for location in locations {
+                guard !scanner.isCancelled else {
+                    scanLog.append("Scan cancelled.")
+                    break
+                }
+                scanStatus = "Scanning \(location.name)..."
+                scanLog.append("→ \(location.path)")
+
+                let files = await scanner.scan(locations: [location], locationManager: locationManager)
+                allFiles.append(contentsOf: files)
+                completed += 1
+                scanProgress = Float(completed) / total
+                scanLog.append("  Found \(files.count) item(s) in \(location.name)")
+            }
+
+            problemFiles = allFiles
+            isScanning = false
+            scanStatus = allFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(allFiles.count) item(s) found."
+            scanLog.append(scanStatus)
+            selectedFileIds = Set(allFiles.filter { $0.riskLevel == .low }.map { $0.id })
         }
     }
     
     func cancelScan() {
         scanner.cancelScan()
         isScanning = false
+        scanProgress = 0
     }
     
     func deleteSelectedFiles() {

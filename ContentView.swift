@@ -132,34 +132,55 @@ struct DiskUsageSection: View {
 
 struct ScanSection: View {
     @ObservedObject var state: AppState
-    
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("SYSTEM ANALYSIS")
                 .font(.system(.headline, design: .monospaced))
                 .foregroundColor(AppTheme.primaryColor)
-            
-            HStack(spacing: 20) {
-                Button(action: {
-                    if state.isScanning {
-                        state.cancelScan()
-                    } else {
-                        state.startScan()
-                    }
-                }) {
-                    HStack {
-                        Image(systemName: state.isScanning ? "stop.fill" : "magnifyingglass")
-                        Text(state.isScanning ? "CANCEL SCAN" : "INITIALIZE SCAN")
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(AccentButtonStyle(isDestructive: state.isScanning))
-                
+
+            Button(action: {
                 if state.isScanning {
-                    ProgressView(value: state.scanProgress)
-                        .progressViewStyle(LinearProgressViewStyle())
-                        .tint(AppTheme.primaryColor)
+                    state.cancelScan()
+                } else {
+                    state.startScan()
                 }
+            }) {
+                HStack {
+                    Image(systemName: state.isScanning ? "stop.fill" : "magnifyingglass")
+                    Text(state.isScanning ? "CANCEL SCAN" : "INITIALIZE SCAN")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(AccentButtonStyle(isDestructive: state.isScanning))
+
+            if state.isScanning {
+                ProgressView(value: state.scanProgress)
+                    .progressViewStyle(LinearProgressViewStyle())
+                    .tint(AppTheme.primaryColor)
+            }
+
+            if !state.scanStatus.isEmpty {
+                Text(state.scanStatus)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(state.isScanning ? AppTheme.warningColor : AppTheme.successColor)
+            }
+
+            if !state.scanLog.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(state.scanLog, id: \.self) { line in
+                            Text(line)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(AppTheme.neutralColor)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(8)
+                }
+                .frame(maxHeight: 120)
+                .background(Color.black.opacity(0.4))
+                .overlay(Rectangle().stroke(AppTheme.primaryColor.opacity(0.2), lineWidth: 1))
             }
         }
     }
