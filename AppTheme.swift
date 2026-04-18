@@ -9,14 +9,14 @@ struct AppTheme {
     static let smallPadding: CGFloat = 6
     static let largePadding: CGFloat = 24
 
-    // Ghost in the Prompt cyber aesthetic (refined)
-    static let primaryColor = Color(red: 0/255, green: 255/255, blue: 255/255) // Cyan #00FFFF
-    static let dangerColor = Color(red: 255/255, green: 0/255, blue: 85/255) // Hot pink #FF0055
-    static let warningColor = Color(red: 252/255, green: 211/255, blue: 77/255) // Yellow #FCD34D
-    static let successColor = Color(red: 0/255, green: 255/255, blue: 127/255) // Neon green #00FF7F
-    static let neutralColor = Color(red: 136/255, green: 136/255, blue: 136/255) // Gray
-    static let backgroundColor = Color(red: 0/255, green: 0/255, blue: 0/255) // Black
-    static let surfaceColor = Color(red: 17/255, green: 17/255, blue: 17/255) // Near black
+    // Readable dark theme
+    static let primaryColor = Color(red: 130/255, green: 220/255, blue: 255/255) // Soft sky blue
+    static let dangerColor = Color(red: 255/255, green: 100/255, blue: 100/255) // Soft red
+    static let warningColor = Color(red: 252/255, green: 211/255, blue: 77/255) // Yellow
+    static let successColor = Color(red: 100/255, green: 220/255, blue: 160/255) // Soft green
+    static let neutralColor = Color(red: 180/255, green: 180/255, blue: 190/255) // Light gray
+    static let backgroundColor = Color(red: 18/255, green: 18/255, blue: 24/255) // Dark navy-black
+    static let surfaceColor = Color(red: 28/255, green: 28/255, blue: 38/255) // Elevated surface
     
     // Glassmorphic background
     static var glassBackground: some View {

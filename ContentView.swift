@@ -16,7 +16,7 @@ struct ContentView: View {
                 // Sidebar
                 Sidebar(selectedTab: $selectedTab)
                     .frame(width: 220)
-                    .background(AppTheme.glassBackground)
+                    .background(Color(red: 14/255, green: 14/255, blue: 20/255))
                 
                 // Main Content
                 VStack(spacing: 0) {
@@ -273,6 +273,9 @@ struct Sidebar: View {
             .opacity(0.6)
         }
         .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color(red: 14/255, green: 14/255, blue: 20/255))
+        .colorScheme(.dark)
     }
 }
 
@@ -295,7 +298,7 @@ struct SidebarItem: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(isSelected ? AppTheme.primaryColor.opacity(0.15) : Color.clear)
-            .foregroundColor(isSelected ? AppTheme.primaryColor : .white)
+            .foregroundColor(isSelected ? AppTheme.primaryColor : AppTheme.neutralColor)
             .overlay(
                 isSelected ? Rectangle().frame(width: 3).foregroundColor(AppTheme.primaryColor) : nil,
                 alignment: .leading
