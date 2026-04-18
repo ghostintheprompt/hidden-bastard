@@ -54,9 +54,7 @@ class FileScanner {
     }
 
     private func scanLocation(_ location: ScanLocation, locationManager: ScanLocationManager) async -> [ProblemFile] {
-        guard let url = locationManager.resolveBookmark(for: location) else {
-            return []
-        }
+        guard let url = locationManager.resolveBookmark(for: location) else { return [] }
 
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
@@ -64,31 +62,53 @@ class FileScanner {
         let category = location.categories.first ?? "Other"
         let sizeThreshold = self.categorySizeThresholds[category] ?? 1_000_000
         let riskLevel = self.riskLevelForCategory(category)
-        let fm = FileManager.default
+        let path = url.path
 
         return await withCheckedContinuation { continuation in
-            var results: [ProblemFile] = []
-            guard let contents = try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey]) else {
+            // One du call to get sizes of all children at once
+            let sizes = self.duSizes(in: path)
+            guard !sizes.isEmpty else {
                 continuation.resume(returning: [])
                 return
             }
 
-            for item in contents {
+            var results: [ProblemFile] = []
+            let fm = FileManager.default
+
+            for (childPath, size) in sizes {
                 if self.shouldCancel { break }
-                let name = item.lastPathComponent
-                // Skip hidden system internals but keep known junk
-                if name.hasPrefix(".") && name != ".npm" && name != ".yarn" { continue }
-
-                let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
-                let size: UInt64 = isDir ? self.getDirectorySize(path: item.path) : ((try? item.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { UInt64($0) } ?? 0)
-                let modified = (try? item.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
-
-                if size >= sizeThreshold {
-                    results.append(ProblemFile(name: name, path: item.path, size: size, dateModified: modified, category: category, riskLevel: riskLevel))
-                }
+                let name = (childPath as NSString).lastPathComponent
+                guard size >= sizeThreshold else { continue }
+                let modified = (try? fm.attributesOfItem(atPath: childPath)[.modificationDate] as? Date) ?? Date()
+                results.append(ProblemFile(name: name, path: childPath, size: size, dateModified: modified, category: category, riskLevel: riskLevel))
             }
             continuation.resume(returning: results)
         }
+    }
+
+    // Run du -sk on all children (including hidden) in one shell call
+    private func duSizes(in directoryPath: String) -> [(String, UInt64)] {
+        let escaped = directoryPath.replacingOccurrences(of: "'", with: "'\\''")
+        let shell = Process()
+        shell.executableURL = URL(fileURLWithPath: "/bin/sh")
+        // Include hidden files via .[!.]* glob alongside regular *
+        shell.arguments = ["-c", "du -sk '\(escaped)'/* '\(escaped)'/.[!.]* 2>/dev/null | sort -rn"]
+        let pipe = Pipe()
+        shell.standardOutput = pipe
+        shell.standardError = Pipe()
+        try? shell.run()
+        shell.waitUntilExit()
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        var results: [(String, UInt64)] = []
+        for line in output.components(separatedBy: "\n") {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count == 2,
+                  let kb = UInt64(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
+            let childPath = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !childPath.isEmpty else { continue }
+            results.append((childPath, kb * 1024))
+        }
+        return results
     }
 
     // MARK: - Legacy Delegate API
@@ -226,39 +246,22 @@ class FileScanner {
         return results
     }
     
-    // Returns the size of a directory
+    // Returns the size of a directory using du for speed
     private func getDirectorySize(path: String) -> UInt64 {
-        var totalSize: UInt64 = 0
-        
-        do {
-            let contents = try FileManager.default.contentsOfDirectory(atPath: path)
-            
-            for filename in contents {
-                let filePath = URL(fileURLWithPath: path).appendingPathComponent(filename).path
-                var isDirectory: ObjCBool = false
-                
-                if FileManager.default.fileExists(atPath: filePath, isDirectory: &isDirectory) {
-                    if isDirectory.boolValue {
-                        // Recursively get subdirectory size
-                        totalSize += getDirectorySize(path: filePath)
-                    } else {
-                        // Get file size
-                        do {
-                            let attributes = try FileManager.default.attributesOfItem(atPath: filePath)
-                            if let size = attributes[.size] as? UInt64 {
-                                totalSize += size
-                            }
-                        } catch {
-                            print("Error getting size for \(filePath): \(error)")
-                        }
-                    }
-                }
-            }
-        } catch {
-            print("Error reading directory \(path): \(error)")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/du")
+        process.arguments = ["-sk", path]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+        try? process.run()
+        process.waitUntilExit()
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        if let sizeStr = output.components(separatedBy: "\t").first,
+           let kb = UInt64(sizeStr.trimmingCharacters(in: .whitespaces)) {
+            return kb * 1024
         }
-        
-        return totalSize
+        return 0
     }
     
     // Cancel an ongoing scan
@@ -266,18 +269,14 @@ class FileScanner {
         shouldCancel = true
     }
 
-    // Delete a file or directory
+    // Move to Trash (safer than permanent delete)
     func deleteFile(path: String, isSimulation: Bool = false) -> Bool {
-        if isSimulation {
-            print("[Simulation] Would delete: \(path)")
-            return true
-        }
-        
+        if isSimulation { return true }
         do {
-            try FileManager.default.removeItem(atPath: path)
+            try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
             return true
         } catch {
-            print("Error deleting \(path): \(error)")
+            print("Trash failed for \(path): \(error.localizedDescription)")
             return false
         }
     }

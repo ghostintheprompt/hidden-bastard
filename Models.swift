@@ -44,6 +44,26 @@ enum RiskLevel: String, CaseIterable {
     }
 }
 
+// Deletion history record
+struct DeletionRecord: Identifiable, Codable {
+    let id: UUID
+    let name: String
+    let path: String
+    let size: UInt64
+    let category: String
+    let deletedAt: Date
+
+    var formattedSize: String {
+        ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+    }
+    var formattedDate: String {
+        let f = DateFormatter()
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f.string(from: deletedAt)
+    }
+}
+
 // Disk space usage item for visualization
 struct DiskSpaceItem: Identifiable {
     let id = UUID()

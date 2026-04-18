@@ -54,11 +54,11 @@ class DiskSpaceMonitor: ObservableObject {
         do {
             let values = try volumeURL.resourceValues(forKeys: [
                 .volumeTotalCapacityKey,
-                .volumeAvailableCapacityKey
+                .volumeAvailableCapacityForImportantUsageKey
             ])
 
             if let total = values.volumeTotalCapacity,
-               let available = values.volumeAvailableCapacity {
+               let available = values.volumeAvailableCapacityForImportantUsage {
                 self.totalSpace = UInt64(total)
                 self.freeSpace = UInt64(available)
                 self.usedSpace = self.totalSpace - self.freeSpace

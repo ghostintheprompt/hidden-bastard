@@ -33,6 +33,8 @@ struct ContentView: View {
                         } else if selectedTab == 1 {
                             FileListView(state: state)
                         } else if selectedTab == 2 {
+                            DeletionHistoryView(state: state)
+                        } else if selectedTab == 3 {
                             RulesListView(rulesEngine: state.rulesEngine)
                         } else {
                             SettingsView()
@@ -277,8 +279,9 @@ struct Sidebar: View {
             
             SidebarItem(icon: "chart.bar.xaxis", title: "DASHBOARD", isSelected: selectedTab == 0) { selectedTab = 0 }
             SidebarItem(icon: "list.bullet.rectangle", title: "DETECTION LOG", isSelected: selectedTab == 1) { selectedTab = 1 }
-            SidebarItem(icon: "bolt.shield", title: "CLEANING RULES", isSelected: selectedTab == 2) { selectedTab = 2 }
-            SidebarItem(icon: "gearshape", title: "CONFIGURATION", isSelected: selectedTab == 3) { selectedTab = 3 }
+            SidebarItem(icon: "clock.arrow.circlepath", title: "DELETION HISTORY", isSelected: selectedTab == 2) { selectedTab = 2 }
+            SidebarItem(icon: "bolt.shield", title: "CLEANING RULES", isSelected: selectedTab == 3) { selectedTab = 3 }
+            SidebarItem(icon: "gearshape", title: "CONFIGURATION", isSelected: selectedTab == 4) { selectedTab = 4 }
             
             Spacer()
             
@@ -352,9 +355,35 @@ struct GridView: View {
 // Placeholder View for Detection Log
 struct FileListView: View {
     @ObservedObject var state: AppState
-    
+
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            if !state.problemFiles.isEmpty {
+                HStack {
+                    Text("\(state.problemFiles.count) ITEMS — \(ByteCountFormatter.string(fromByteCount: Int64(state.problemFiles.reduce(0) { $0 + $1.size }), countStyle: .file))")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppTheme.neutralColor)
+                    Spacer()
+                    Button("SELECT ALL") { state.selectAll() }
+                        .buttonStyle(.plain)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppTheme.primaryColor)
+                    Text("·").foregroundColor(AppTheme.neutralColor)
+                    Button("NONE") { state.selectNone() }
+                        .buttonStyle(.plain)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppTheme.neutralColor)
+                    if !state.selectedFileIds.isEmpty {
+                        Button("MOVE TO TRASH (\(ByteCountFormatter.string(fromByteCount: Int64(state.totalSelectedSize), countStyle: .file)))") {
+                            state.deleteSelectedFiles()
+                        }
+                        .buttonStyle(AccentButtonStyle(isDestructive: true))
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 10)
+                .background(AppTheme.surfaceColor)
+            }
             if state.problemFiles.isEmpty {
                 VStack(spacing: 20) {
                     Image(systemName: "shield.check")
@@ -402,7 +431,82 @@ struct FileListView: View {
                 .listStyle(.plain)
             }
         }
-        .padding(24)
+    }
+}
+
+struct DeletionHistoryView: View {
+    @ObservedObject var state: AppState
+
+    var totalFreed: UInt64 {
+        state.deletionHistory.reduce(0) { $0 + $1.size }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("DELETION HISTORY")
+                        .font(.system(.headline, design: .monospaced))
+                        .foregroundColor(AppTheme.primaryColor)
+                    Text("TOTAL FREED: \(ByteCountFormatter.string(fromByteCount: Int64(totalFreed), countStyle: .file))")
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppTheme.successColor)
+                }
+                Spacer()
+                if !state.deletionHistory.isEmpty {
+                    Button("CLEAR HISTORY") { state.clearDeletionHistory() }
+                        .buttonStyle(.plain)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppTheme.dangerColor)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(AppTheme.surfaceColor)
+
+            if state.deletionHistory.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 48))
+                        .foregroundColor(AppTheme.primaryColor.opacity(0.4))
+                    Text("NO DELETIONS YET")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(AppTheme.neutralColor)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(state.deletionHistory) { record in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(record.name)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.white)
+                                Text(record.path)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(AppTheme.neutralColor)
+                                    .lineLimit(1)
+                                Text(record.formattedDate)
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundColor(AppTheme.neutralColor.opacity(0.6))
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text(record.formattedSize)
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(AppTheme.primaryColor)
+                                Text(record.category.uppercased())
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundColor(AppTheme.neutralColor)
+                            }
+                        }
+                        .listRowBackground(Color.clear)
+                        .padding(.vertical, 4)
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
     }
 }
 

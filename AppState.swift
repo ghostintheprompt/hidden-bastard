@@ -9,6 +9,9 @@ class AppState: ObservableObject {
     @Published var scanProgress: Float = 0.0
     @Published var scanStatus: String = ""
     @Published var scanLog: [String] = []
+    @Published var deletionHistory: [DeletionRecord] = []
+
+    private let historyKey = "com.hiddenbastard.deletionhistory"
     
     // Services
     let scanner = FileScanner()
@@ -28,7 +31,24 @@ class AppState: ObservableObject {
     }
     
     init() {
-        // Initialize state if needed
+        loadDeletionHistory()
+    }
+
+    private func loadDeletionHistory() {
+        guard let data = UserDefaults.standard.data(forKey: historyKey),
+              let records = try? JSONDecoder().decode([DeletionRecord].self, from: data) else { return }
+        deletionHistory = records
+    }
+
+    private func saveDeletionHistory() {
+        if let data = try? JSONEncoder().encode(deletionHistory) {
+            UserDefaults.standard.set(data, forKey: historyKey)
+        }
+    }
+
+    func clearDeletionHistory() {
+        deletionHistory = []
+        UserDefaults.standard.removeObject(forKey: historyKey)
     }
     
     func startScan() {
@@ -78,13 +98,39 @@ class AppState: ObservableObject {
     
     func deleteSelectedFiles() {
         let filesToDelete = selectedFiles
+        var deletedCount = 0
+        var failedCount = 0
+        var newRecords: [DeletionRecord] = []
         for file in filesToDelete {
             if scanner.deleteFile(path: file.path) {
+                newRecords.append(DeletionRecord(
+                    id: UUID(), name: file.name, path: file.path,
+                    size: file.size, category: file.category, deletedAt: Date()
+                ))
                 problemFiles.removeAll { $0.id == file.id }
                 selectedFileIds.remove(file.id)
+                deletedCount += 1
+            } else {
+                failedCount += 1
             }
         }
+        deletionHistory.insert(contentsOf: newRecords, at: 0)
+        saveDeletionHistory()
         diskMonitor.refresh()
+        let totalFreed = ByteCountFormatter.string(fromByteCount: Int64(newRecords.reduce(0) { $0 + $1.size }), countStyle: .file)
+        if failedCount > 0 {
+            scanStatus = "Moved \(deletedCount) item(s) (\(totalFreed)) to Trash. \(failedCount) failed."
+        } else {
+            scanStatus = "Moved \(deletedCount) item(s) to Trash — freed \(totalFreed)."
+        }
+    }
+
+    func selectAll() {
+        selectedFileIds = Set(problemFiles.map { $0.id })
+    }
+
+    func selectNone() {
+        selectedFileIds = []
     }
 }
 
