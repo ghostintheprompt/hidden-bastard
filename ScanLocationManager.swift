@@ -151,7 +151,7 @@ class ScanLocationManager: ObservableObject {
     }
 
     // Resolve a security-scoped bookmark to get access to the URL
-    func resolveBookmark(for location: ScanLocation) -> URL? {
+    nonisolated func resolveBookmark(for location: ScanLocation) -> URL? {
         guard let bookmarkData = location.bookmarkData else {
             return location.url
         }

@@ -33,9 +33,9 @@ struct ContentView: View {
                         } else if selectedTab == 1 {
                             FileListView(state: state)
                         } else if selectedTab == 2 {
-                            RuleEditorView(rulesEngine: state.rulesEngine)
+                            RulesListView(rulesEngine: state.rulesEngine)
                         } else {
-                            SettingsView(diskMonitor: state.diskMonitor, locationManager: state.locationManager)
+                            SettingsView()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

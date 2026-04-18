@@ -313,6 +313,97 @@ struct TargetEditorRow: View {
     }
 }
 
+struct RulesListView: View {
+    @ObservedObject var rulesEngine: RulesEngine
+    @State private var editingRule: CleaningRule? = nil
+    @State private var showingEditor = false
+    @State private var isCreatingNew = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("CLEANING RULES")
+                    .font(.system(.headline, design: .monospaced))
+                    .foregroundColor(AppTheme.primaryColor)
+                Spacer()
+                Button(action: {
+                    editingRule = nil
+                    isCreatingNew = true
+                    showingEditor = true
+                }) {
+                    Label("NEW RULE", systemImage: "plus")
+                        .font(.system(.caption, design: .monospaced))
+                }
+                .buttonStyle(AccentButtonStyle())
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+
+            if rulesEngine.rules.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "bolt.shield")
+                        .font(.system(size: 48))
+                        .foregroundColor(AppTheme.primaryColor.opacity(0.4))
+                    Text("NO RULES CONFIGURED")
+                        .font(.system(.body, design: .monospaced))
+                        .foregroundColor(AppTheme.neutralColor)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(rulesEngine.rules) { rule in
+                        HStack {
+                            Image(systemName: rule.icon)
+                                .frame(width: 24)
+                                .foregroundColor(AppTheme.primaryColor)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rule.name.uppercased())
+                                    .font(.system(.body, design: .monospaced))
+                                    .fontWeight(.bold)
+                                Text(rule.description)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .opacity(0.6)
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { rule.isEnabled },
+                                set: { _ in rulesEngine.toggleRule(rule) }
+                            ))
+                            .toggleStyle(.switch)
+                            Button(action: {
+                                editingRule = rule
+                                isCreatingNew = false
+                                showingEditor = true
+                            }) {
+                                Image(systemName: "pencil")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .listRowBackground(Color.clear)
+                        .padding(.vertical, 4)
+                    }
+                    .onDelete { rulesEngine.deleteRule(at: $0) }
+                }
+                .listStyle(.plain)
+            }
+        }
+        .sheet(isPresented: $showingEditor) {
+            RuleEditorView(
+                rule: isCreatingNew ? nil : editingRule,
+                onSave: { rule in
+                    if isCreatingNew {
+                        rulesEngine.addRule(rule)
+                    } else {
+                        rulesEngine.updateRule(rule)
+                    }
+                    showingEditor = false
+                },
+                onCancel: { showingEditor = false }
+            )
+        }
+    }
+}
+
 struct RuleEditorView_Previews: PreviewProvider {
     static var previews: some View {
         RuleEditorView(rule: nil, onSave: { _ in }, onCancel: {})

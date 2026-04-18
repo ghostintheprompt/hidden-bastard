@@ -17,6 +17,7 @@
 		A10009 /* DiskSpaceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20009 /* DiskSpaceMonitor.swift */; };
 		A10010 /* CleaningRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20010 /* CleaningRulesEngine.swift */; };
 		A10011 /* RuleEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20011 /* RuleEditorView.swift */; };
+		A10012 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20012 /* AppState.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,7 @@
 		A20009 /* DiskSpaceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiskSpaceMonitor.swift; sourceTree = "<group>"; };
 		A20010 /* CleaningRulesEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleaningRulesEngine.swift; sourceTree = "<group>"; };
 		A20011 /* RuleEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuleEditorView.swift; sourceTree = "<group>"; };
+		A20012 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A30001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A30002 /* HiddenBastard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = HiddenBastard.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -69,6 +71,7 @@
 				A20010 /* CleaningRulesEngine.swift */,
 				A20004 /* Models.swift */,
 				A20005 /* AppTheme.swift */,
+				A20012 /* AppState.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -158,6 +161,7 @@
 				A10009 /* DiskSpaceMonitor.swift in Sources */,
 				A10010 /* CleaningRulesEngine.swift in Sources */,
 				A10011 /* RuleEditorView.swift in Sources */,
+				A10012 /* AppState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -306,7 +310,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiddenbastard.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
@@ -334,7 +338,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.hiddenbastard.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 6.0;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
