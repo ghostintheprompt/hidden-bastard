@@ -64,6 +64,32 @@ struct DeletionRecord: Identifiable, Codable {
     }
 }
 
+// Plain English explanations for each category
+struct CategoryInfo {
+    let emoji: String
+    let plain: String
+    let safe: String
+
+    static func for_(_ category: String) -> CategoryInfo {
+        switch category {
+        case "Incomplete Downloads":
+            return CategoryInfo(emoji: "⬇️", plain: "Partial downloads that never finished — files your browser started grabbing but didn't complete. Totally safe to delete.", safe: "Safe")
+        case "Application Caches":
+            return CategoryInfo(emoji: "📦", plain: "Temporary files apps use to load faster. Apps rebuild these automatically. Deleting frees space with no permanent loss.", safe: "Safe")
+        case "Developer Files":
+            return CategoryInfo(emoji: "🔨", plain: "Build artifacts, compiled code, and tool caches from development work. Xcode/VS Code regenerates these. Safe unless you're mid-build.", safe: "Safe when not building")
+        case "System Logs":
+            return CategoryInfo(emoji: "📋", plain: "Log files macOS and apps write to track activity. Useful for debugging, but they accumulate forever. Safe to clear.", safe: "Safe")
+        case "Trash Items":
+            return CategoryInfo(emoji: "🗑️", plain: "Files already in your Trash. Permanently removes them from disk.", safe: "Permanent — review first")
+        case "Docker":
+            return CategoryInfo(emoji: "🐳", plain: "Docker container data and volumes. Only delete if you're sure you don't need these containers.", safe: "Verify first")
+        default:
+            return CategoryInfo(emoji: "📁", plain: "Files that may be taking up unnecessary space.", safe: "Review before deleting")
+        }
+    }
+}
+
 // Disk space usage item for visualization
 struct DiskSpaceItem: Identifiable {
     let id = UUID()

@@ -48,6 +48,11 @@ struct ContentView: View {
         .onAppear {
             state.diskMonitor.refresh()
         }
+        .onChange(of: state.isScanning) { scanning in
+            if !scanning && !state.problemFiles.isEmpty {
+                selectedTab = 1
+            }
+        }
         .frame(minWidth: 900, minHeight: 600)
     }
 }
@@ -409,13 +414,20 @@ struct FileListView: View {
                             ))
                             .toggleStyle(CheckboxToggleStyle())
                             
-                            VStack(alignment: .leading) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(file.name)
                                     .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.white)
                                 Text(file.path)
                                     .font(.system(.caption, design: .monospaced))
-                                    .opacity(0.5)
+                                    .foregroundColor(AppTheme.neutralColor)
                                     .lineLimit(1)
+                                let info = CategoryInfo.for_(file.category)
+                                Text("\(info.emoji) \(info.plain)")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(AppTheme.warningColor.opacity(0.8))
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                             
                             Spacer()

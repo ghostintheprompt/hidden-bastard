@@ -126,11 +126,31 @@ class ScanLocationManager: ObservableObject {
         // Yarn cache
         add(home.appendingPathComponent(".yarn/cache").path, name: "Yarn Cache", category: "Developer Files")
 
-        // DS_Store (scan home)
-        add(home.path, name: "DS_Store Files (Home)", category: "System Logs", enabled: false)
+        // Xcode iOS/watchOS DeviceSupport (huge symbol files per iOS version)
+        add("\(lib)/Developer/Xcode/iOS DeviceSupport", name: "Xcode iOS DeviceSupport", category: "Developer Files")
+        add("\(lib)/Developer/Xcode/watchOS DeviceSupport", name: "Xcode watchOS DeviceSupport", category: "Developer Files")
+
+        // VS Code workspace storage and extension cache
+        add("\(lib)/Application Support/Code/User/workspaceStorage", name: "VS Code Workspace Storage", category: "Developer Files")
+        add("\(lib)/Application Support/Code/CachedExtensionVSIXs", name: "VS Code Extension Cache", category: "Developer Files")
+        add("\(lib)/Application Support/Code/logs", name: "VS Code Logs", category: "System Logs")
 
         // Simulator runtimes
         add("\(lib)/Developer/CoreSimulator/Caches", name: "Simulator Caches", category: "Developer Files")
+
+        // Crash logs and diagnostic reports
+        add("\(lib)/Logs/DiagnosticReports", name: "Crash Reports", category: "System Logs")
+        add("\(lib)/Logs/CrashReporter", name: "Crash Reporter Logs", category: "System Logs")
+
+        // Python virtual environments (scan common locations)
+        add(home.appendingPathComponent(".virtualenvs").path, name: "Python Virtualenvs", category: "Developer Files")
+        add(home.appendingPathComponent(".pyenv/versions").path, name: "pyenv Versions", category: "Developer Files")
+
+        // Gradle cache
+        add(home.appendingPathComponent(".gradle/caches").path, name: "Gradle Cache", category: "Developer Files")
+
+        // Homebrew cache
+        add(home.appendingPathComponent("Library/Caches/Homebrew").path, name: "Homebrew Cache", category: "Application Caches")
 
         return locations
     }
