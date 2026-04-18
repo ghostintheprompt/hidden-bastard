@@ -22,6 +22,13 @@ One scan freed 20GB on a machine that "had no space to free."
 
 ---
 
+## Screenshots
+
+<img src="screenshots/Dashboard.png" alt="Dashboard" width="700" />
+<img src="screenshots/Setting.png" alt="Settings" width="700" />
+
+---
+
 ## What It Finds
 
 | Category | What it is | Typical size |
