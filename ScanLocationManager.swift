@@ -77,75 +77,60 @@ class ScanLocationManager: ObservableObject {
         }
     }
 
-    // Get default scan locations (user-accessible only)
+    // Get default scan locations
     func getDefaultLocations() -> [ScanLocation] {
         var locations: [ScanLocation] = []
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let fm = FileManager.default
 
-        // Downloads folder
-        if let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first {
-            locations.append(ScanLocation(
-                id: UUID(),
-                url: downloadsURL,
-                name: "Downloads",
-                path: downloadsURL.path,
-                bookmarkData: nil,
-                categories: ["Incomplete Downloads"],
-                isEnabled: true
-            ))
-        }
-
-        // User Library Caches
-        if let libraryURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
-            let cachesURL = libraryURL.appendingPathComponent("Caches")
-            locations.append(ScanLocation(
-                id: UUID(),
-                url: cachesURL,
-                name: "Application Caches",
-                path: cachesURL.path,
-                bookmarkData: nil,
-                categories: ["Application Caches"],
-                isEnabled: true
-            ))
-
-            // User Logs
-            let logsURL = libraryURL.appendingPathComponent("Logs")
-            locations.append(ScanLocation(
-                id: UUID(),
-                url: logsURL,
-                name: "Application Logs",
-                path: logsURL.path,
-                bookmarkData: nil,
-                categories: ["System Logs"],
-                isEnabled: true
-            ))
-
-            // Developer folder (if exists)
-            let developerURL = libraryURL.appendingPathComponent("Developer")
-            if FileManager.default.fileExists(atPath: developerURL.path) {
-                locations.append(ScanLocation(
-                    id: UUID(),
-                    url: developerURL,
-                    name: "Developer Files",
-                    path: developerURL.path,
-                    bookmarkData: nil,
-                    categories: ["Developer Files"],
-                    isEnabled: true
-                ))
+        func add(_ path: String, name: String, category: String, enabled: Bool = true) {
+            let url = URL(fileURLWithPath: path)
+            if fm.fileExists(atPath: path) {
+                locations.append(ScanLocation(id: UUID(), url: url, name: name, path: path, bookmarkData: nil, categories: [category], isEnabled: enabled))
             }
         }
 
-        // Trash
-        if let trashURL = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first {
-            locations.append(ScanLocation(
-                id: UUID(),
-                url: trashURL,
-                name: "Trash",
-                path: trashURL.path,
-                bookmarkData: nil,
-                categories: ["Trash Items"],
-                isEnabled: true
-            ))
+        // Downloads
+        if let url = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first {
+            add(url.path, name: "Downloads", category: "Incomplete Downloads")
         }
+
+        // Trash
+        if let url = fm.urls(for: .trashDirectory, in: .userDomainMask).first {
+            add(url.path, name: "Trash", category: "Trash Items")
+        }
+
+        let lib = home.appendingPathComponent("Library").path
+
+        // App caches
+        add("\(lib)/Caches", name: "Application Caches", category: "Application Caches")
+
+        // Logs
+        add("\(lib)/Logs", name: "Application Logs", category: "System Logs")
+
+        // iOS Backups
+        add("\(lib)/Application Support/MobileSync/Backup", name: "iOS Backups", category: "Developer Files")
+
+        // Xcode DerivedData
+        add("\(lib)/Developer/Xcode/DerivedData", name: "Xcode DerivedData", category: "Developer Files")
+
+        // Xcode Archives
+        add("\(lib)/Developer/Xcode/Archives", name: "Xcode Archives", category: "Developer Files")
+
+        // CocoaPods cache
+        add("\(lib)/Caches/CocoaPods", name: "CocoaPods Cache", category: "Developer Files")
+
+        // npm cache
+        add(home.appendingPathComponent(".npm").path, name: "npm Cache", category: "Developer Files")
+
+        // Yarn cache
+        add(home.appendingPathComponent(".yarn/cache").path, name: "Yarn Cache", category: "Developer Files")
+
+        // DS_Store (scan home)
+        add(home.path, name: "DS_Store Files (Home)", category: "System Logs", enabled: false)
+
+        // Simulator runtimes
+        add("\(lib)/Developer/CoreSimulator/Caches", name: "Simulator Caches", category: "Developer Files")
 
         return locations
     }

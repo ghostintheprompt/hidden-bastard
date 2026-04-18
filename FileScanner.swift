@@ -19,12 +19,12 @@ class FileScanner {
     ]
 
     private let categorySizeThresholds: [String: UInt64] = [
-        "Incomplete Downloads": 10_000_000,      // 10MB
-        "Application Caches": 100_000_000,       // 100MB
-        "Developer Files": 500_000_000,          // 500MB
-        "System Logs": 50_000_000,               // 50MB
-        "Docker": 1_000_000_000,                 // 1GB
-        "Trash Items": 100_000_000               // 100MB
+        "Incomplete Downloads": 1_000_000,       // 1MB
+        "Application Caches": 5_000_000,         // 5MB
+        "Developer Files": 50_000_000,           // 50MB
+        "System Logs": 1_000_000,                // 1MB
+        "Docker": 100_000_000,                   // 100MB
+        "Trash Items": 1_000_000                 // 1MB
     ]
 
     // MARK: - Modern Async API
@@ -59,26 +59,34 @@ class FileScanner {
         }
 
         let accessing = url.startAccessingSecurityScopedResource()
-        defer {
-            if accessing {
-                url.stopAccessingSecurityScopedResource()
-            }
-        }
+        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
-        let primaryCategory = location.categories.first ?? "Other"
-        let sizeThreshold = self.categorySizeThresholds[primaryCategory] ?? 10_000_000
-        let pattern = self.categoryPatterns[primaryCategory]
-        let riskLevel = self.riskLevelForCategory(primaryCategory)
+        let category = location.categories.first ?? "Other"
+        let sizeThreshold = self.categorySizeThresholds[category] ?? 1_000_000
+        let riskLevel = self.riskLevelForCategory(category)
+        let fm = FileManager.default
 
         return await withCheckedContinuation { continuation in
-            let results = self.scanDirectory(
-                path: url.path,
-                recursive: true,
-                sizeThreshold: sizeThreshold,
-                pattern: pattern,
-                category: primaryCategory,
-                riskLevel: riskLevel
-            )
+            var results: [ProblemFile] = []
+            guard let contents = try? fm.contentsOfDirectory(at: url, includingPropertiesForKeys: [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey]) else {
+                continuation.resume(returning: [])
+                return
+            }
+
+            for item in contents {
+                if self.shouldCancel { break }
+                let name = item.lastPathComponent
+                // Skip hidden system internals but keep known junk
+                if name.hasPrefix(".") && name != ".npm" && name != ".yarn" { continue }
+
+                let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                let size: UInt64 = isDir ? self.getDirectorySize(path: item.path) : ((try? item.resourceValues(forKeys: [.fileSizeKey]).fileSize).flatMap { UInt64($0) } ?? 0)
+                let modified = (try? item.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+
+                if size >= sizeThreshold {
+                    results.append(ProblemFile(name: name, path: item.path, size: size, dateModified: modified, category: category, riskLevel: riskLevel))
+                }
+            }
             continuation.resume(returning: results)
         }
     }

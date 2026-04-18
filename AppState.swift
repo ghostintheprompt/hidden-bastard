@@ -61,9 +61,10 @@ class AppState: ObservableObject {
                 scanLog.append("  Found \(files.count) item(s) in \(location.name)")
             }
 
-            problemFiles = allFiles
+            problemFiles = allFiles.sorted { $0.size > $1.size }
             isScanning = false
-            scanStatus = allFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(allFiles.count) item(s) found."
+            let totalSize = ByteCountFormatter.string(fromByteCount: Int64(allFiles.reduce(0) { $0 + $1.size }), countStyle: .file)
+            scanStatus = allFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(allFiles.count) item(s) found, \(totalSize) recoverable."
             scanLog.append(scanStatus)
             selectedFileIds = Set(allFiles.filter { $0.riskLevel == .low }.map { $0.id })
         }
