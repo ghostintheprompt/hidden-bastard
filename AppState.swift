@@ -118,8 +118,11 @@ class AppState: ObservableObject {
         saveDeletionHistory()
         diskMonitor.refresh()
         let totalFreed = ByteCountFormatter.string(fromByteCount: Int64(newRecords.reduce(0) { $0 + $1.size }), countStyle: .file)
+        // Remove any remaining stale items that no longer exist on disk
+        problemFiles.removeAll { !FileManager.default.fileExists(atPath: $0.path) }
+
         if failedCount > 0 {
-            scanStatus = "Moved \(deletedCount) item(s) (\(totalFreed)) to Trash. \(failedCount) failed."
+            scanStatus = "Moved \(deletedCount) item(s) to Trash. \(failedCount) could not be moved — may be in use or permission denied."
         } else {
             scanStatus = "Moved \(deletedCount) item(s) to Trash — freed \(totalFreed)."
         }

@@ -272,6 +272,7 @@ class FileScanner {
     // Move to Trash (safer than permanent delete)
     func deleteFile(path: String, isSimulation: Bool = false) -> Bool {
         if isSimulation { return true }
+        if !FileManager.default.fileExists(atPath: path) { return true }
         do {
             try FileManager.default.trashItem(at: URL(fileURLWithPath: path), resultingItemURL: nil)
             return true
