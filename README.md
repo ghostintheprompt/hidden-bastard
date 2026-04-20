@@ -1,4 +1,6 @@
-<img src="hidden_bastard_image.png" width="200" alt="Hidden Bastard" />
+<p align="center">
+  <img src="hidden_bastard_image.png" width="520" alt="Hidden Bastard" />
+</p>
 
 # Hidden Bastard
 
