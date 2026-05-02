@@ -32,6 +32,41 @@ class AppState: ObservableObject {
     
     init() {
         loadDeletionHistory()
+        setupAppActivationObserver()
+    }
+
+    private func setupAppActivationObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshState()
+        }
+    }
+
+    private func refreshState() {
+        diskMonitor.refresh()
+        validateFoundFiles()
+    }
+
+    private func validateFoundFiles() {
+        guard !problemFiles.isEmpty else { return }
+        
+        let initialCount = problemFiles.count
+        problemFiles.removeAll { !FileManager.default.fileExists(atPath: $0.path) }
+        
+        if problemFiles.count < initialCount {
+            // Update selection to remove IDs of files that were deleted
+            let remainingIds = Set(problemFiles.map { $0.id })
+            selectedFileIds.formIntersection(remainingIds)
+            
+            // If we're not scanning, update the status to reflect changes
+            if !isScanning {
+                let totalSize = ByteCountFormatter.string(fromByteCount: Int64(problemFiles.reduce(0) { $0 + $1.size }), countStyle: .file)
+                scanStatus = problemFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(problemFiles.count) item(s) found, \(totalSize) recoverable."
+            }
+        }
     }
 
     private func loadDeletionHistory() {

@@ -26,6 +26,17 @@ class DiskSpaceMonitor: ObservableObject {
         refresh()
         setupBackgroundMonitoring()
         requestNotificationPermission()
+        setupAppActivationObserver()
+    }
+    
+    private func setupAppActivationObserver() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refresh()
+        }
     }
     
     private func setupBackgroundMonitoring() {
