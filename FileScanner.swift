@@ -24,7 +24,8 @@ class FileScanner {
         "Developer Files": 50_000_000,           // 50MB
         "System Logs": 1_000_000,                // 1MB
         "Docker": 100_000_000,                   // 100MB
-        "Trash Items": 1_000_000                 // 1MB
+        "Trash Items": 1_000_000,                // 1MB
+        "Large App Data": 250_000_000            // 250MB — only surface genuinely big folders
     ]
 
     // MARK: - Modern Async API
@@ -48,9 +49,94 @@ class FileScanner {
                 allResults.append(contentsOf: results)
             }
         }
-        
+
+        // Deep "biggest folders" pass — finds large folders under ~/Library
+        // regardless of the allow-list above, so space-hogs nothing knows about
+        // (a 4 GB browser AI model, 19 GB of simulators, etc.) still surface.
+        if !shouldCancel {
+            let homeLib = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library").path
+            let deep = self.scanBiggestFolders(roots: [homeLib], maxDepth: 4, minSize: 500_000_000)
+            let known = Set(allResults.map { $0.path })
+            for f in deep where !known.contains(f.path) {
+                allResults.append(f)
+            }
+        }
+
         isScanning = false
         return allResults
+    }
+
+    // MARK: - Deep "biggest folders" scan
+
+    /// Walks each root to `maxDepth` and returns the largest folders above `minSize`,
+    /// classified by how safe they are to delete. Unlike the allow-list scan, this
+    /// surfaces big folders no one hardcoded — the real fix for "it missed everything."
+    func scanBiggestFolders(roots: [String], maxDepth: Int = 4, minSize: UInt64 = 500_000_000) -> [ProblemFile] {
+        var raw: [(path: String, size: UInt64)] = []
+        for root in roots {
+            let escaped = root.replacingOccurrences(of: "'", with: "'\\''")
+            let shell = Process()
+            shell.executableURL = URL(fileURLWithPath: "/bin/sh")
+            // du -k -d N gives cumulative sizes of every folder down to depth N.
+            shell.arguments = ["-c", "du -k -d \(maxDepth) '\(escaped)' 2>/dev/null"]
+            let pipe = Pipe()
+            shell.standardOutput = pipe
+            shell.standardError = Pipe()
+            try? shell.run()
+            shell.waitUntilExit()
+            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            for line in output.components(separatedBy: "\n") {
+                if shouldCancel { break }
+                let parts = line.components(separatedBy: "\t")
+                guard parts.count == 2,
+                      let kb = UInt64(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
+                let path = parts[1].trimmingCharacters(in: .whitespaces)
+                guard !path.isEmpty, path != root else { continue }   // skip the root aggregate itself
+                let size = kb * 1024
+                guard size >= minSize else { continue }
+                raw.append((path, size))
+            }
+        }
+
+        // De-duplicate the tree: drop an ancestor folder when a descendant we're
+        // already keeping accounts for ~80%+ of it, so we surface the specific hog
+        // (…/CoreSimulator/Devices) instead of the aggregate (…/Library/Developer).
+        let bySize = raw.sorted { $0.size > $1.size }
+        var kept: [(path: String, size: UInt64)] = []
+        for item in bySize {
+            let dominatedByChild = kept.contains {
+                $0.path.hasPrefix(item.path + "/") && $0.size >= UInt64(Double(item.size) * 0.8)
+            }
+            if dominatedByChild { continue }
+            kept.append(item)
+        }
+
+        let fm = FileManager.default
+        return kept.sorted { $0.size > $1.size }.prefix(80).map { item in
+            let (category, risk) = classifyBigFolder(path: item.path)
+            let modified = (try? fm.attributesOfItem(atPath: item.path)[.modificationDate] as? Date) ?? Date()
+            let name = (item.path as NSString).lastPathComponent
+            return ProblemFile(name: name, path: item.path, size: item.size,
+                               dateModified: modified, category: category, riskLevel: risk)
+        }
+    }
+
+    /// Best-effort safety classification of a big folder by known path signatures.
+    private func classifyBigFolder(path: String) -> (String, RiskLevel) {
+        let p = path.lowercased()
+        // Regenerable build artifacts / dev data → safe-ish (medium)
+        let devSignatures = ["coresimulator/devices", "coresimulator/caches", "deriveddata",
+                             "node_modules", "devicesupport", "/.gradle/", "/.pub-cache",
+                             "ios devicesupport", "archives"]
+        for sig in devSignatures where p.contains(sig) { return ("Developer Files", .medium) }
+        // Pure caches → safe (low)
+        let cacheSignatures = ["/caches/", "/cache/", "gpucache", "code cache", "service worker",
+                               "shadercache", "grshadercache", "optguideondevicemodel",
+                               "optguideondeviceclassifiermodel", "/cacheddata", "/diagnosticreports"]
+        for sig in cacheSignatures where p.contains(sig) { return ("Application Caches", .low) }
+        // Big and unfamiliar → may hold real data, review first
+        return ("Large App Data", .high)
     }
 
     private func scanLocation(_ location: ScanLocation, locationManager: ScanLocationManager) async -> [ProblemFile] {
@@ -134,6 +220,8 @@ class FileScanner {
             return .medium
         case "Trash Items":
             return .low
+        case "Large App Data":
+            return .high
         default:
             return .low
         }

@@ -4,7 +4,7 @@
 
 # Hidden Bastard
 
-**macOS Junk File Eliminator — v1.0**
+**macOS Junk File Eliminator — v1.1**
 
 Free. Open-source. No subscriptions. No telemetry. Built by [MDRN Corp](https://mdrn.app).
 
@@ -24,6 +24,14 @@ One scan freed 20GB on a machine that "had no space to free."
 
 ---
 
+## New in v1.1 — it finds the stuff it used to miss
+
+Older versions only looked inside a **hardcoded list** of known junk folders — so they could walk straight past the biggest space-hogs (a 19 GB pile of Xcode simulators, a 4 GB on-device browser AI model) simply because nobody had added that exact path.
+
+v1.1 adds a **deep "biggest folders" scan**: it walks your Library and surfaces the largest folders *anywhere*, classified by how safe they are to delete — so space-hogs no cleaner knows about still show up. Plus a fix to simulator detection that was pointing at the wrong subfolder (`Caches` instead of `Devices`). Nothing new is auto-deleted; unfamiliar big folders are flagged **review-first**.
+
+---
+
 ## Screenshots
 
 <img src="screenshots/Dashboard.png" alt="Dashboard" width="700" />
@@ -40,11 +48,12 @@ One scan freed 20GB on a machine that "had no space to free."
 | **iOS Backups** | Old iPhone/iPad local backups, never auto-deleted | 10–50 GB |
 | **System Logs** | Crash reports, diagnostic logs, app logs from years ago | 500 MB–5 GB |
 | **Developer Caches** | npm, Yarn, CocoaPods, Gradle, Homebrew downloads | 5–20 GB |
-| **Simulator Caches** | Xcode iOS/watchOS simulator data | 5–15 GB |
+| **iOS Simulators** | Installed apps & data per Xcode simulator device (the big one) | 5–20 GB |
 | **VS Code Storage** | Workspace storage, extension cache, logs | 1–5 GB |
 | **Python Envs** | Virtualenvs and pyenv versions that outlived their projects | varies |
 | **Incomplete Downloads** | Partial downloads that never finished | varies |
 | **Trash** | Files already deleted but not yet freed from disk | varies |
+| **Biggest Folders** *(deep scan)* | Any large folder — even ones no list knows about: browser AI models, app data, containers | varies |
 
 Every result shows a plain-English explanation of what the file is, why it's safe to delete, and how much space it's using.
 
@@ -94,9 +103,8 @@ See [BUILD.md](BUILD.md) for full build and signing instructions.
 - Application binaries
 - Active project files
 - System integrity files
-- Anything not on the known-safe list
 
-Everything goes to **Trash first** — not permanent delete. You can always undo.
+The deep scan *surfaces* large unfamiliar folders so you can finally see them — but they're flagged **high-risk / review-first** and never auto-selected. And everything goes to **Trash first**, never a permanent delete. You choose what's removed; you can always undo.
 
 ---
 
@@ -109,10 +117,10 @@ Everything runs locally on your machine. No data leaves your computer. No analyt
 ## Building a Release DMG
 
 ```bash
-./make_dmg.sh 1.0.0
+./make_dmg.sh 1.1.0
 ```
 
-Builds a Release `.app`, wraps it in a DMG with an Applications symlink, outputs to `build/HiddenBastard-1.0.0.dmg`. Attach to a GitHub Release.
+Builds a Release `.app`, wraps it in a DMG with an Applications symlink, outputs to `build/HiddenBastard-1.1.0.dmg`. Attach to a GitHub Release.
 
 ---
 

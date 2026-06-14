@@ -84,6 +84,8 @@ struct CategoryInfo {
             return CategoryInfo(emoji: "🗑️", plain: "Files already in your Trash. Permanently removes them from disk.", safe: "Permanent — review first")
         case "Docker":
             return CategoryInfo(emoji: "🐳", plain: "Docker container data and volumes. Only delete if you're sure you don't need these containers.", safe: "Verify first")
+        case "Large App Data":
+            return CategoryInfo(emoji: "🗄️", plain: "Big folders inside Application Support, Containers, and Developer — browser AI models, app data, simulator devices, and the like. Some is reclaimable, but this also holds real data like profiles and logins. Review each item before deleting.", safe: "Review carefully — holds real data")
         default:
             return CategoryInfo(emoji: "📁", plain: "Files that may be taking up unnecessary space.", safe: "Review before deleting")
         }
