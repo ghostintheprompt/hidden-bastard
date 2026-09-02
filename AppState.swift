@@ -109,11 +109,21 @@ class AppState: ObservableObject {
                 scanStatus = "Scanning \(location.name)..."
                 scanLog.append("→ \(location.path)")
 
-                let files = await scanner.scan(locations: [location], locationManager: locationManager)
+                let files = await scanner.scan(locations: [location], locationManager: locationManager, includeDeepScan: false)
                 allFiles.append(contentsOf: files)
                 completed += 1
                 scanProgress = Float(completed) / total
                 scanLog.append("  Found \(files.count) item(s) in \(location.name)")
+            }
+
+            if !scanner.isCancelled {
+                scanStatus = "Scanning for large folders..."
+                scanLog.append("→ Deep scan: largest folders under ~/Library")
+                let deepFiles = await scanner.scan(locations: [], locationManager: locationManager, includeDeepScan: true)
+                let knownPaths = Set(allFiles.map { $0.path })
+                let newDeepFiles = deepFiles.filter { !knownPaths.contains($0.path) }
+                allFiles.append(contentsOf: newDeepFiles)
+                scanLog.append("  Found \(newDeepFiles.count) large folder(s)")
             }
 
             problemFiles = allFiles.sorted { $0.size > $1.size }

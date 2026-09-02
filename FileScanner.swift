@@ -31,7 +31,7 @@ class FileScanner {
     // MARK: - Modern Async API
 
     /// Scans multiple locations in parallel using TaskGroups
-    func scan(locations: [ScanLocation], locationManager: ScanLocationManager, isSimulation: Bool = false) async -> [ProblemFile] {
+    func scan(locations: [ScanLocation], locationManager: ScanLocationManager, isSimulation: Bool = false, includeDeepScan: Bool = true) async -> [ProblemFile] {
         isScanning = true
         shouldCancel = false
         
@@ -53,7 +53,7 @@ class FileScanner {
         // Deep "biggest folders" pass — finds large folders under ~/Library
         // regardless of the allow-list above, so space-hogs nothing knows about
         // (a 4 GB browser AI model, 19 GB of simulators, etc.) still surface.
-        if !shouldCancel {
+        if includeDeepScan && !shouldCancel {
             let homeLib = FileManager.default.homeDirectoryForCurrentUser
                 .appendingPathComponent("Library").path
             let deep = self.scanBiggestFolders(roots: [homeLib], maxDepth: 4, minSize: 500_000_000)
@@ -84,8 +84,12 @@ class FileScanner {
             shell.standardOutput = pipe
             shell.standardError = Pipe()
             try? shell.run()
+            // Drain the pipe while `du` runs — its output can exceed the 64KB
+            // kernel pipe buffer, and reading only after waitUntilExit() deadlocks
+            // (child blocks on write(), parent blocks on wait()) once it does.
+            let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
             shell.waitUntilExit()
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            let output = String(data: outputData, encoding: .utf8) ?? ""
             for line in output.components(separatedBy: "\n") {
                 if shouldCancel { break }
                 let parts = line.components(separatedBy: "\t")
