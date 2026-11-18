@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var state = AppState()
@@ -344,6 +346,7 @@ struct GridView: View {
 // Placeholder View for Detection Log
 struct FileListView: View {
     @ObservedObject var state: AppState
+    @State private var reportStatus = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -353,7 +356,7 @@ struct FileListView: View {
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(AppTheme.neutralColor)
                     Spacer()
-                    Button("SELECT ALL") { state.selectAll() }
+                    Button("SELECT SAFE ITEMS") { state.selectAll() }
                         .buttonStyle(.plain)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(AppTheme.primaryColor)
@@ -362,6 +365,10 @@ struct FileListView: View {
                         .buttonStyle(.plain)
                         .font(.system(.caption, design: .monospaced))
                         .foregroundColor(AppTheme.neutralColor)
+                    Button("EXPORT .MD") { exportReport() }
+                        .buttonStyle(.plain)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundColor(AppTheme.primaryColor)
                     if !state.selectedFileIds.isEmpty {
                         Button("MOVE TO TRASH (\(ByteCountFormatter.string(fromByteCount: Int64(state.totalSelectedSize), countStyle: .file)))") {
                             state.deleteSelectedFiles()
@@ -372,6 +379,14 @@ struct FileListView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 10)
                 .background(AppTheme.surfaceColor)
+            }
+            if !reportStatus.isEmpty {
+                Text(reportStatus)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundColor(AppTheme.neutralColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 6)
             }
             if state.problemFiles.isEmpty {
                 VStack(spacing: 20) {
@@ -397,6 +412,7 @@ struct FileListView: View {
                                 }
                             ))
                             .toggleStyle(CheckboxToggleStyle())
+                            .disabled(!file.assessment.canSelect)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(file.name)
@@ -407,11 +423,19 @@ struct FileListView: View {
                                     .foregroundColor(AppTheme.neutralColor)
                                     .lineLimit(1)
                                 let info = CategoryInfo.for_(file.category)
-                                Text("\(info.emoji) \(info.plain)")
+                                Text("\(info.emoji) \(file.category) — \(file.assessment.label)")
                                     .font(.system(.caption, design: .monospaced))
                                     .foregroundColor(AppTheme.warningColor.opacity(0.8))
-                                    .lineLimit(2)
+                                    .lineLimit(1)
+                                Text(file.assessment.explanation)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundColor(AppTheme.neutralColor)
+                                    .lineLimit(3)
                                     .fixedSize(horizontal: false, vertical: true)
+                                Text("Item timestamp: \(file.formattedDate)")
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundColor(AppTheme.neutralColor.opacity(0.7))
+                                    .lineLimit(1)
                             }
                             
                             Spacer()
@@ -425,6 +449,23 @@ struct FileListView: View {
                     }
                 }
                 .listStyle(.plain)
+            }
+        }
+    }
+
+    private func exportReport() {
+        let panel = NSSavePanel()
+        panel.title = "Export Hidden Bastard Findings"
+        panel.nameFieldStringValue = "HiddenBastard-Findings.md"
+        panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+        panel.isExtensionHidden = false
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            do {
+                try state.findingsReport.write(to: url, atomically: true, encoding: .utf8)
+                reportStatus = "Markdown report saved. Review names and paths before sharing it."
+            } catch {
+                reportStatus = "Report export failed: \(error.localizedDescription)"
             }
         }
     }

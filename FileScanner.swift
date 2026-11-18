@@ -20,6 +20,7 @@ class FileScanner {
 
     private let categorySizeThresholds: [String: UInt64] = [
         "Incomplete Downloads": 1_000_000,       // 1MB
+        "Large Downloads": 250_000_000,          // 250MB
         "Application Caches": 5_000_000,         // 5MB
         "Developer Files": 50_000_000,           // 50MB
         "System Logs": 1_000_000,                // 1MB
@@ -31,17 +32,18 @@ class FileScanner {
     // MARK: - Modern Async API
 
     /// Scans multiple locations in parallel using TaskGroups
-    func scan(locations: [ScanLocation], locationManager: ScanLocationManager, isSimulation: Bool = false, includeDeepScan: Bool = true) async -> [ProblemFile] {
+    func scan(locations: [ScanLocation], locationManager: ScanLocationManager, isSimulation: Bool = false) async -> [ProblemFile] {
         isScanning = true
         shouldCancel = false
         
         let enabledLocations = locations.filter { $0.isEnabled }
+        let excludedPaths = await locationManager.exclusionsSnapshot()
         var allResults: [ProblemFile] = []
         
         await withTaskGroup(of: [ProblemFile].self) { group in
             for location in enabledLocations {
                 group.addTask {
-                    return await self.scanLocation(location, locationManager: locationManager)
+                    return await self.scanLocation(location, locationManager: locationManager, excludedPaths: excludedPaths)
                 }
             }
             
@@ -50,100 +52,112 @@ class FileScanner {
             }
         }
 
-        // Deep "biggest folders" pass — finds large folders under ~/Library
-        // regardless of the allow-list above, so space-hogs nothing knows about
-        // (a 4 GB browser AI model, 19 GB of simulators, etc.) still surface.
-        if includeDeepScan && !shouldCancel {
-            let homeLib = FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("Library").path
-            let deep = self.scanBiggestFolders(roots: [homeLib], maxDepth: 4, minSize: 500_000_000)
-            let known = Set(allResults.map { $0.path })
-            for f in deep where !known.contains(f.path) {
-                allResults.append(f)
-            }
-        }
-
         isScanning = false
         return allResults
     }
 
-    // MARK: - Deep "biggest folders" scan
+    /// Finds large immediate subfolders in broad, review-only areas outside the
+    /// normal cleanup allow-list. These results are never auto-selected.
+    func scanUnlistedLargeFolders(
+        roots: [String],
+        coveredPaths: [String],
+        excludedPaths: [String],
+        minSize: UInt64 = 500_000_000
+    ) async -> [ProblemFile] {
+        var results: [ProblemFile] = []
+        var seenPaths = Set<String>()
+        let fm = FileManager.default
 
-    /// Walks each root to `maxDepth` and returns the largest folders above `minSize`,
-    /// classified by how safe they are to delete. Unlike the allow-list scan, this
-    /// surfaces big folders no one hardcoded — the real fix for "it missed everything."
-    func scanBiggestFolders(roots: [String], maxDepth: Int = 4, minSize: UInt64 = 500_000_000) -> [ProblemFile] {
-        var raw: [(path: String, size: UInt64)] = []
         for root in roots {
-            let escaped = root.replacingOccurrences(of: "'", with: "'\\''")
-            let shell = Process()
-            shell.executableURL = URL(fileURLWithPath: "/bin/sh")
-            // du -k -d N gives cumulative sizes of every folder down to depth N.
-            shell.arguments = ["-c", "du -k -d \(maxDepth) '\(escaped)' 2>/dev/null"]
-            let pipe = Pipe()
-            shell.standardOutput = pipe
-            shell.standardError = Pipe()
-            try? shell.run()
-            // Drain the pipe while `du` runs — its output can exceed the 64KB
-            // kernel pipe buffer, and reading only after waitUntilExit() deadlocks
-            // (child blocks on write(), parent blocks on wait()) once it does.
-            let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
-            shell.waitUntilExit()
-            let output = String(data: outputData, encoding: .utf8) ?? ""
+            if shouldCancel { break }
+            guard fm.fileExists(atPath: root),
+                  !excludedPaths.contains(where: { isDescendant(root, of: $0) }) else { continue }
+
+            func appendCandidate(_ path: String, size: UInt64) {
+                guard !path.isEmpty, path != root,
+                      !seenPaths.contains(path),
+                      !coveredPaths.contains(where: { pathsOverlap(path, $0) }),
+                      !excludedPaths.contains(where: { pathsOverlap(path, $0) }),
+                      !roots.contains(where: { $0 != root && isDescendant($0, of: path) }),
+                      size >= minSize else { return }
+                guard let attributes = try? fm.attributesOfItem(atPath: path),
+                      let modified = attributes[.modificationDate] as? Date else {
+                    print("Could not read modification date for \(path).")
+                    return
+                }
+                seenPaths.insert(path)
+                let name = (path as NSString).lastPathComponent
+                results.append(ProblemFile(name: name, path: path, size: size,
+                                           dateModified: modified, category: "Large App Data", riskLevel: .high))
+            }
+
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/du")
+            process.arguments = ["-k", "-d", "1", root]
+            let outputPipe = Pipe()
+            process.standardOutput = outputPipe
+            process.standardError = FileHandle.nullDevice
+
+            do {
+                try process.run()
+            } catch {
+                print("Failed to scan large folders under \(root): \(error.localizedDescription)")
+                continue
+            }
+
+            let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            if process.terminationStatus != 0 {
+                print("Could not fully scan large folders under \(root) (du exit \(process.terminationStatus)).")
+            }
+
+            guard let output = String(data: outputData, encoding: .utf8) else {
+                print("Could not decode large-folder scan output under \(root).")
+                continue
+            }
             for line in output.components(separatedBy: "\n") {
                 if shouldCancel { break }
                 let parts = line.components(separatedBy: "\t")
                 guard parts.count == 2,
                       let kb = UInt64(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
                 let path = parts[1].trimmingCharacters(in: .whitespaces)
-                guard !path.isEmpty, path != root else { continue }   // skip the root aggregate itself
-                let size = kb * 1024
-                guard size >= minSize else { continue }
-                raw.append((path, size))
+                let (size, overflow) = kb.multipliedReportingOverflow(by: 1024)
+                guard !overflow else { continue }
+                appendCandidate(path, size: size)
+            }
+
+            do {
+                for name in try fm.contentsOfDirectory(atPath: root) {
+                    if shouldCancel { break }
+                    let path = (root as NSString).appendingPathComponent(name)
+                    guard let attributes = try? fm.attributesOfItem(atPath: path),
+                          let type = attributes[.type] as? FileAttributeType,
+                          type == .typeRegular,
+                          let fileSize = attributes[.size] as? NSNumber else { continue }
+                    appendCandidate(path, size: fileSize.uint64Value)
+                }
+            } catch {
+                print("Could not list immediate files under \(root): \(error.localizedDescription)")
             }
         }
 
-        // De-duplicate the tree: drop an ancestor folder when a descendant we're
-        // already keeping accounts for ~80%+ of it, so we surface the specific hog
-        // (…/CoreSimulator/Devices) instead of the aggregate (…/Library/Developer).
-        let bySize = raw.sorted { $0.size > $1.size }
-        var kept: [(path: String, size: UInt64)] = []
-        for item in bySize {
-            let dominatedByChild = kept.contains {
-                $0.path.hasPrefix(item.path + "/") && $0.size >= UInt64(Double(item.size) * 0.8)
-            }
-            if dominatedByChild { continue }
-            kept.append(item)
-        }
-
-        let fm = FileManager.default
-        return kept.sorted { $0.size > $1.size }.prefix(80).map { item in
-            let (category, risk) = classifyBigFolder(path: item.path)
-            let modified = (try? fm.attributesOfItem(atPath: item.path)[.modificationDate] as? Date) ?? Date()
-            let name = (item.path as NSString).lastPathComponent
-            return ProblemFile(name: name, path: item.path, size: item.size,
-                               dateModified: modified, category: category, riskLevel: risk)
-        }
+        return results
     }
 
-    /// Best-effort safety classification of a big folder by known path signatures.
-    private func classifyBigFolder(path: String) -> (String, RiskLevel) {
-        let p = path.lowercased()
-        // Regenerable build artifacts / dev data → safe-ish (medium)
-        let devSignatures = ["coresimulator/devices", "coresimulator/caches", "deriveddata",
-                             "node_modules", "devicesupport", "/.gradle/", "/.pub-cache",
-                             "ios devicesupport", "archives"]
-        for sig in devSignatures where p.contains(sig) { return ("Developer Files", .medium) }
-        // Pure caches → safe (low)
-        let cacheSignatures = ["/caches/", "/cache/", "gpucache", "code cache", "service worker",
-                               "shadercache", "grshadercache", "optguideondevicemodel",
-                               "optguideondeviceclassifiermodel", "/cacheddata", "/diagnosticreports"]
-        for sig in cacheSignatures where p.contains(sig) { return ("Application Caches", .low) }
-        // Big and unfamiliar → may hold real data, review first
-        return ("Large App Data", .high)
+    private func pathsOverlap(_ first: String, _ second: String) -> Bool {
+        isDescendant(first, of: second) || isDescendant(second, of: first)
     }
 
-    private func scanLocation(_ location: ScanLocation, locationManager: ScanLocationManager) async -> [ProblemFile] {
+    private func isDescendant(_ path: String, of root: String) -> Bool {
+        let normalizedRoot = root.hasSuffix("/") ? String(root.dropLast()) : root
+        return path == normalizedRoot || path.hasPrefix(normalizedRoot + "/")
+    }
+
+    private func scanLocation(
+        _ location: ScanLocation,
+        locationManager: ScanLocationManager,
+        excludedPaths: [String]
+    ) async -> [ProblemFile] {
         guard let url = locationManager.resolveBookmark(for: location) else { return [] }
 
         let accessing = url.startAccessingSecurityScopedResource()
@@ -153,6 +167,7 @@ class FileScanner {
         let sizeThreshold = self.categorySizeThresholds[category] ?? 1_000_000
         let riskLevel = self.riskLevelForCategory(category)
         let path = url.path
+        guard !excludedPaths.contains(where: { self.isDescendant(path, of: $0) }) else { return [] }
 
         return await withCheckedContinuation { continuation in
             // One du call to get sizes of all children at once
@@ -167,10 +182,28 @@ class FileScanner {
 
             for (childPath, size) in sizes {
                 if self.shouldCancel { break }
+                if excludedPaths.contains(where: { self.pathsOverlap(childPath, $0) }) { continue }
                 let name = (childPath as NSString).lastPathComponent
-                guard size >= sizeThreshold else { continue }
-                let modified = (try? fm.attributesOfItem(atPath: childPath)[.modificationDate] as? Date) ?? Date()
-                results.append(ProblemFile(name: name, path: childPath, size: size, dateModified: modified, category: category, riskLevel: riskLevel))
+                var resultCategory = category
+                var resultRisk = riskLevel
+                var resultThreshold = sizeThreshold
+                if category == "Incomplete Downloads" {
+                    if let pattern = self.categoryPatterns[category],
+                       name.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil {
+                        resultThreshold = self.categorySizeThresholds["Incomplete Downloads"] ?? sizeThreshold
+                    } else {
+                        resultCategory = "Large Downloads"
+                        resultRisk = .high
+                        resultThreshold = self.categorySizeThresholds["Large Downloads"] ?? sizeThreshold
+                    }
+                }
+                guard size >= resultThreshold else { continue }
+                guard let attributes = try? fm.attributesOfItem(atPath: childPath),
+                      let modified = attributes[.modificationDate] as? Date else {
+                    print("Could not read modification date for \(childPath).")
+                    continue
+                }
+                results.append(ProblemFile(name: name, path: childPath, size: size, dateModified: modified, category: resultCategory, riskLevel: resultRisk))
             }
             continuation.resume(returning: results)
         }
@@ -225,6 +258,8 @@ class FileScanner {
         case "Trash Items":
             return .low
         case "Large App Data":
+            return .high
+        case "Large Downloads":
             return .high
         default:
             return .low

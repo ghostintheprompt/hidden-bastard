@@ -176,12 +176,14 @@ class RulesEngine: ObservableObject {
                     let fileSize = attributes[.size] as? UInt64 ?? 0
 
                     switch target.action {
-                    case .delete:
-                        try FileManager.default.removeItem(atPath: file)
-                        deletedFiles.append(file)
-                        freedSpace += fileSize
-
-                    case .moveToTrash:
+                    case .delete, .moveToTrash:
+                        // Both resolve to Trash, never a permanent removeItem. Automated
+                        // rules run unattended on a schedule (hourly to monthly, no human
+                        // confirmation at execution time) — a permanent-delete path here
+                        // would silently contradict the app-wide safety promise (README:
+                        // "everything goes to Trash first, never a permanent delete").
+                        // RuleAction.delete is kept for backward-compatible decoding of
+                        // rules saved by earlier versions; it no longer bypasses Trash.
                         try FileManager.default.trashItem(at: URL(fileURLWithPath: file), resultingItemURL: nil)
                         deletedFiles.append(file)
                         freedSpace += fileSize
@@ -332,7 +334,7 @@ class RulesEngine: ObservableObject {
                         pattern: nil,
                         sizeThreshold: 500_000_000, // 500MB
                         ageThreshold: nil,
-                        action: .delete
+                        action: .moveToTrash
                     )
                 ],
                 schedule: .monthly,

@@ -3,7 +3,8 @@
 ## Requirements
 
 - macOS 13.0 Ventura or later
-- Xcode 15 or later
+- Apple's Command Line Tools (Swift, the macOS SDK, `iconutil`, and `codesign`)
+- A full Xcode installation is not required
 
 ## Build from Source
 
@@ -11,19 +12,25 @@
 git clone https://github.com/ghostintheprompt/hidden-bastard
 cd hidden-bastard
 
-# Debug build
-xcodebuild -project HiddenBastard.xcodeproj -scheme HiddenBastard -configuration Debug build
+# Build for this Mac's CPU architecture
+bash ./build_app.sh
 
-# Release build
-xcodebuild -project HiddenBastard.xcodeproj -scheme HiddenBastard -configuration Release build
+# Optional version number
+bash ./build_app.sh 1.1.0
 ```
+
+The app is created at `build/HiddenBastard-CLT.app`. The script compiles the Swift sources with `swiftc`, builds the `.icns` icon using `iconutil`, assembles the app bundle, and signs it locally with an ad-hoc signature. It does not use `xcodebuild`, `actool`, or `ibtool`.
+
+The logo and app icon inputs are regular PNG files under `Resources/`; there are no asset catalogs or Xcode project files in the build path.
 
 ## Create a DMG
 
 ```bash
-./make_dmg.sh 1.0.0
-# Output: build/HiddenBastard-1.0.0.dmg
+bash ./make_dmg.sh 1.1.0
+# Output: build/HiddenBastard-1.1.0.dmg
 ```
+
+The DMG builder uses the Command Line Tools build and preserves other files under `build/`.
 
 ## Installing
 
@@ -31,12 +38,10 @@ xcodebuild -project HiddenBastard.xcodeproj -scheme HiddenBastard -configuration
 2. Drag Hidden Bastard to Applications
 3. Right-click → Open on first launch (required for unsigned apps)
 
-## First Launch
-
-macOS will warn that the app is from an unidentified developer. This is normal for open-source apps distributed outside the App Store. Right-click → Open bypasses this permanently.
+The command-line build is signed ad hoc, not notarized. macOS may require manually approving the app on first launch.
 
 ## Troubleshooting
 
 **"Cannot access files"** — go to System Settings → Privacy & Security → Full Disk Access → add Hidden Bastard
 
-**Build errors** — make sure all `.swift` files are added to the Xcode target (Sources build phase)
+**Build errors** — make sure the Command Line Tools are installed and selected with `xcode-select -p`

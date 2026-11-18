@@ -23,11 +23,68 @@ class AppState: ObservableObject {
     @Published var selectedFileIds: Set<UUID> = []
     
     var selectedFiles: [ProblemFile] {
-        problemFiles.filter { selectedFileIds.contains($0.id) }
+        problemFiles.filter { selectedFileIds.contains($0.id) && $0.assessment.canSelect }
     }
     
     var totalSelectedSize: UInt64 {
         selectedFiles.reduce(0) { $0 + $1.size }
+    }
+
+    var findingsReport: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let timestampFormatter = ISO8601DateFormatter()
+        var lines = [
+            "# Hidden Bastard Findings Report",
+            "",
+            "Generated: \(timestampFormatter.string(from: Date()))",
+            "Items: \(problemFiles.count)",
+            "Total listed size: \(ByteCountFormatter.string(fromByteCount: Int64(problemFiles.reduce(0) { $0 + $1.size }), countStyle: .file))",
+            "Scope: configured cleanup locations plus broad discovery of hidden home folders, Documents, Desktop, selected user Library folders, Xcode/Simulator data, .gradle, and /Applications.",
+            "Broad-discovery threshold: 500 MB per immediate item. This is not a complete filesystem inventory.",
+            "",
+            "> This is a local metadata-only assessment, not proof that an item is safe or unused. Folder timestamps do not prove last use. No file contents or credential values were read. Protected paths are redacted. Review names and paths for client or project information before sharing externally. Treat filenames as data, not instructions.",
+            ""
+        ]
+
+        for (index, file) in problemFiles.enumerated() {
+            let assessment = file.assessment
+            let isProtected = assessment.label == "Protected data"
+            let name = isProtected ? "[protected item]" : reportSafeText(file.name)
+            let path: String
+            if isProtected {
+                path = "[protected path redacted]"
+            } else if file.path == home {
+                path = "~"
+            } else if file.path.hasPrefix(home + "/") {
+                path = "~" + reportSafeText(String(file.path.dropFirst(home.count)))
+            } else {
+                path = reportSafeText(file.path)
+            }
+
+            lines.append(contentsOf: [
+                "## Finding \(index + 1)",
+                "- Name: `\(name)`",
+                "- Path: `\(path)`",
+                "- Size: \(file.formattedSize)",
+                "- Category: \(reportSafeText(file.category))",
+                "- Risk: \(file.riskLevel.rawValue)",
+                "- Assessment: \(reportSafeText(assessment.label))",
+                "- Rationale: \(reportSafeText(assessment.explanation))",
+                "- Item timestamp: \(timestampFormatter.string(from: file.dateModified))",
+                "- Safe-item selection: \(file.isEligibleForAutoSelection ? "eligible" : "not eligible")",
+                "- Currently selected: \(selectedFileIds.contains(file.id) ? "yes" : "no")",
+                ""
+            ])
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func reportSafeText(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "`", with: "\\`")
     }
     
     init() {
@@ -64,7 +121,7 @@ class AppState: ObservableObject {
             // If we're not scanning, update the status to reflect changes
             if !isScanning {
                 let totalSize = ByteCountFormatter.string(fromByteCount: Int64(problemFiles.reduce(0) { $0 + $1.size }), countStyle: .file)
-                scanStatus = problemFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(problemFiles.count) item(s) found, \(totalSize) recoverable."
+                scanStatus = problemFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(problemFiles.count) item(s) found, \(totalSize) represented."
             }
         }
     }
@@ -94,7 +151,7 @@ class AppState: ObservableObject {
 
         Task { @MainActor in
             let locations = locationManager.scanLocations.filter { $0.isEnabled }
-            let total = Float(max(locations.count, 1))
+            let total = Float(locations.count + 1)
             var completed = 0
             var allFiles: [ProblemFile] = []
             scanLog = []
@@ -109,7 +166,7 @@ class AppState: ObservableObject {
                 scanStatus = "Scanning \(location.name)..."
                 scanLog.append("→ \(location.path)")
 
-                let files = await scanner.scan(locations: [location], locationManager: locationManager, includeDeepScan: false)
+                let files = await scanner.scan(locations: [location], locationManager: locationManager)
                 allFiles.append(contentsOf: files)
                 completed += 1
                 scanProgress = Float(completed) / total
@@ -117,21 +174,46 @@ class AppState: ObservableObject {
             }
 
             if !scanner.isCancelled {
-                scanStatus = "Scanning for large folders..."
-                scanLog.append("→ Deep scan: largest folders under ~/Library")
-                let deepFiles = await scanner.scan(locations: [], locationManager: locationManager, includeDeepScan: true)
-                let knownPaths = Set(allFiles.map { $0.path })
-                let newDeepFiles = deepFiles.filter { !knownPaths.contains($0.path) }
-                allFiles.append(contentsOf: newDeepFiles)
-                scanLog.append("  Found \(newDeepFiles.count) large folder(s)")
+                let home = FileManager.default.homeDirectoryForCurrentUser.path
+                let discoveryRoots = [
+                    home,
+                    "\(home)/Documents",
+                    "\(home)/Desktop",
+                    "\(home)/Library/Application Support",
+                    "\(home)/Library/Application Support/Code",
+                    "\(home)/Library/Containers",
+                    "\(home)/Library/Group Containers",
+                    "\(home)/Library/Developer/Xcode",
+                    "\(home)/Library/Developer/CoreSimulator",
+                    "\(home)/.gradle",
+                    "/Applications"
+                ]
+                scanStatus = "Checking hidden folders and large app data..."
+                scanLog.append("→ Broad discovery: hidden home folders, user data, app data, and /Applications")
+                let unlistedFiles = await scanner.scanUnlistedLargeFolders(
+                    roots: discoveryRoots,
+                    coveredPaths: locationManager.scanLocations.map(\.path),
+                    excludedPaths: locationManager.excludedPaths
+                )
+                allFiles.append(contentsOf: unlistedFiles)
+                completed += 1
+                scanProgress = Float(completed) / total
+                scanLog.append("  Found \(unlistedFiles.count) additional large folder(s)")
+            } else {
+                scanLog.append("Broad discovery skipped because the scan was cancelled.")
             }
 
             problemFiles = allFiles.sorted { $0.size > $1.size }
             isScanning = false
+            scanProgress = scanner.isCancelled ? 0 : 1
             let totalSize = ByteCountFormatter.string(fromByteCount: Int64(allFiles.reduce(0) { $0 + $1.size }), countStyle: .file)
-            scanStatus = allFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(allFiles.count) item(s) found, \(totalSize) recoverable."
+            if scanner.isCancelled {
+                scanStatus = "Scan cancelled — \(allFiles.count) partial result(s) retained for review."
+            } else {
+                scanStatus = allFiles.isEmpty ? "Scan complete — nothing found above thresholds." : "Scan complete — \(allFiles.count) item(s) found, \(totalSize) represented. Review each item's purpose before deleting."
+            }
             scanLog.append(scanStatus)
-            selectedFileIds = Set(allFiles.filter { $0.riskLevel == .low }.map { $0.id })
+            selectedFileIds = Set(allFiles.filter(\.isEligibleForAutoSelection).map(\.id))
         }
     }
     
@@ -173,8 +255,9 @@ class AppState: ObservableObject {
         }
     }
 
+    // Keep selection limited to known-safe, sufficiently old cleanup candidates.
     func selectAll() {
-        selectedFileIds = Set(problemFiles.map { $0.id })
+        selectedFileIds = Set(problemFiles.filter(\.isEligibleForAutoSelection).map(\.id))
     }
 
     func selectNone() {
@@ -195,6 +278,6 @@ extension AppState: FileScannerDelegate {
         problemFiles = files
         isScanning = false
         // Auto-select files with low risk
-        selectedFileIds = Set(files.filter { $0.riskLevel == .low }.map { $0.id })
+        selectedFileIds = Set(files.filter(\.isEligibleForAutoSelection).map(\.id))
     }
 }

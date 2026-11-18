@@ -40,6 +40,10 @@ struct AppTheme {
             return primaryColor
         case "Trash Items":
             return dangerColor
+        case "Large Downloads":
+            return warningColor
+        case "Large App Data":
+            return neutralColor
         default:
             return neutralColor
         }
@@ -61,6 +65,10 @@ struct AppTheme {
             return "cube.box.fill"
         case "Trash Items":
             return "trash.fill"
+        case "Large Downloads":
+            return "arrow.down.doc.fill"
+        case "Large App Data":
+            return "externaldrive.fill"
         default:
             return "circle"
         }
@@ -162,11 +170,19 @@ struct AppIcon: View {
     let size: CGFloat
 
     var body: some View {
-        Image("AppLogo")
+        logoImage
             .resizable()
             .interpolation(.high)
             .scaledToFit()
             .frame(width: size, height: size)
             .clipShape(RoundedRectangle(cornerRadius: size * 0.22))
+    }
+
+    private var logoImage: Image {
+        guard let url = Bundle.main.url(forResource: "AppLogo", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else {
+            preconditionFailure("AppLogo.png is missing from the app bundle.")
+        }
+        return Image(nsImage: image)
     }
 }

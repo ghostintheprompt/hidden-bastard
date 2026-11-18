@@ -28,7 +28,16 @@ class ScanLocationManager: ObservableObject {
     }
     
     func isPathExcluded(_ path: String) -> Bool {
-        return excludedPaths.contains { path.hasPrefix($0) }
+        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        return excludedPaths.contains { excludedPath in
+            let standardizedExclusion = URL(fileURLWithPath: excludedPath).standardizedFileURL.path
+            return standardizedPath == standardizedExclusion
+                || standardizedPath.hasPrefix(standardizedExclusion + "/")
+        }
+    }
+
+    func exclusionsSnapshot() -> [String] {
+        excludedPaths
     }
 
     // Add a new location using NSOpenPanel
@@ -135,9 +144,7 @@ class ScanLocationManager: ObservableObject {
         add("\(lib)/Application Support/Code/CachedExtensionVSIXs", name: "VS Code Extension Cache", category: "Developer Files")
         add("\(lib)/Application Support/Code/logs", name: "VS Code Logs", category: "System Logs")
 
-        // Simulator devices (the REAL space hog: installed apps + data per simulator)
-        // The old version only pointed at /Caches (usually ~0 B) and missed /Devices entirely.
-        add("\(lib)/Developer/CoreSimulator/Devices", name: "iOS Simulators", category: "Developer Files")
+        // Simulator caches
         add("\(lib)/Developer/CoreSimulator/Caches", name: "Simulator Caches", category: "Developer Files")
 
         // Crash logs and diagnostic reports
@@ -153,17 +160,6 @@ class ScanLocationManager: ObservableObject {
 
         // Homebrew cache
         add(home.appendingPathComponent("Library/Caches/Homebrew").path, name: "Homebrew Cache", category: "Application Caches")
-
-        // ── Broad roots ─────────────────────────────────────────────────
-        // Scan these at the top level so large folders the hardcoded list
-        // above doesn't know about still surface — e.g. Chrome's ~4 GB
-        // on-device AI model in Application Support/Google, big app containers.
-        // Off by default and flagged high-risk: these also hold real user data
-        // (profiles, logins), so they're for review, not one-click cleaning.
-        add("\(lib)/Application Support", name: "Application Support", category: "Large App Data", enabled: false)
-        add("\(lib)/Containers", name: "App Containers", category: "Large App Data", enabled: false)
-        add("\(lib)/Group Containers", name: "Group Containers", category: "Large App Data", enabled: false)
-        add("\(lib)/Developer", name: "Developer Data", category: "Large App Data", enabled: false)
 
         return locations
     }
@@ -218,14 +214,23 @@ class ScanLocationManager: ObservableObject {
         let decoder = JSONDecoder()
         if let decoded = try? decoder.decode([ScanLocation].self, from: data) {
             scanLocations = decoded
-            // Merge in any newly-added default locations missing from saved data,
-            // so an app update that adds scan targets (CoreSimulator/Devices, the
-            // broad roots, etc.) reaches existing users instead of being stuck with
-            // the old saved list. Custom user-added locations are preserved.
-            let existingPaths = Set(decoded.map { $0.path })
-            let missingDefaults = getDefaultLocations().filter { !existingPaths.contains($0.path) }
-            if !missingDefaults.isEmpty {
-                scanLocations.append(contentsOf: missingDefaults)
+            let libraryPath = FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library").path
+            // Disable scan roots appended by the expanded scanner in prior versions.
+            let pathsAddedByExpandedScan: Set<String> = [
+                "\(libraryPath)/Developer/CoreSimulator/Devices",
+                "\(libraryPath)/Application Support",
+                "\(libraryPath)/Containers",
+                "\(libraryPath)/Group Containers",
+                "\(libraryPath)/Developer"
+            ]
+            var changed = false
+            for index in scanLocations.indices
+            where pathsAddedByExpandedScan.contains(scanLocations[index].path) && scanLocations[index].isEnabled {
+                scanLocations[index].isEnabled = false
+                changed = true
+            }
+            if changed {
                 saveLocations()
             }
         } else {

@@ -4,7 +4,7 @@
 
 # Hidden Bastard
 
-**macOS Junk File Eliminator — v1.1**
+**macOS Storage Discovery and Cleanup — v1.1**
 
 Free. Open-source. No subscriptions. No telemetry. Built by [MDRN Corp](https://mdrn.app).
 
@@ -14,21 +14,20 @@ Free. Open-source. No subscriptions. No telemetry. Built by [MDRN Corp](https://
 
 ---
 
-## Your Mac is hiding gigabytes of junk from you
+## Find hidden storage. Understand it before cleanup.
 
-macOS creates invisible files everywhere — caches, logs, build artifacts, old iOS backups, Xcode derived data from projects you deleted years ago. The Storage panel won't show you. CleanMyMac wants $40/year to.
-
-**Hidden Bastard finds them. Shows you exactly what they are in plain English. Moves them to Trash.**
-
-One scan freed 20GB on a machine that "had no space to free."
+Hidden Bastard scans known cleanup locations and discovers large folders across your home directory—including hidden dotfolders—and selected app-data locations. It explains what findings are likely for, distinguishes known caches from projects and application data, protects recognized credential paths, and moves only items you choose to Trash.
 
 ---
 
-## New in v1.1 — it finds the stuff it used to miss
+## Recent updates
 
-Older versions only looked inside a **hardcoded list** of known junk folders — so they could walk straight past the biggest space-hogs (a 19 GB pile of Xcode simulators, a 4 GB on-device browser AI model) simply because nobody had added that exact path.
-
-v1.1 adds a **deep "biggest folders" scan**: it walks your Library and surfaces the largest folders *anywhere*, classified by how safe they are to delete — so space-hogs no cleaner knows about still show up. Plus a fix to simulator detection that was pointing at the wrong subfolder (`Caches` instead of `Devices`). Nothing new is auto-deleted; unfamiliar big folders are flagged **review-first**.
+- Broad discovery now includes hidden home folders (such as `.codex` and `.colima`), large user-data and app-data folders, Xcode/Simulator data, and installed apps.
+- Findings show the path, size, item timestamp, likely purpose, and a review recommendation. Project markers, developer state, installed apps, and unknown data are not preselected.
+- Large completed downloads are reported separately from known partial downloads.
+- **SELECT SAFE ITEMS** only selects known regenerable caches with old timestamps and stale partial downloads. Trash contents still require an explicit choice.
+- **EXPORT .MD** saves the current findings locally for a second opinion. It contains metadata, not file contents; recognized credential and browser-profile paths are redacted. Review project/client names before sharing externally.
+- Build the macOS app with Apple's Command Line Tools; a full Xcode installation is not required.
 
 ---
 
@@ -53,9 +52,10 @@ v1.1 adds a **deep "biggest folders" scan**: it walks your Library and surfaces 
 | **Python Envs** | Virtualenvs and pyenv versions that outlived their projects | varies |
 | **Incomplete Downloads** | Partial downloads that never finished | varies |
 | **Trash** | Files already deleted but not yet freed from disk | varies |
-| **Biggest Folders** *(deep scan)* | Any large folder — even ones no list knows about: browser AI models, app data, containers | varies |
+| **Large App Data** *(broad discovery)* | Hidden tool data, VM/container disks, local AI models, project folders, and other large app data | varies |
+| **Large Downloads** | Large completed downloads, kept separate from incomplete-download cleanup | varies |
 
-Every result shows a plain-English explanation of what the file is, why it's safe to delete, and how much space it's using.
+Every result shows its full path, size, item timestamp, and a plain-English assessment of its likely purpose and relevance. Recent caches, development data, projects, installed apps, and unknown folders are not preselected. Items that are not protected can still be selected manually after review. Old, known regenerable caches and stale partial downloads are the only items eligible for automatic selection; **SELECT SAFE ITEMS** applies the same rule.
 
 ---
 
@@ -79,32 +79,28 @@ brew install --cask hidden-bastard
 ```bash
 git clone https://github.com/ghostintheprompt/hidden-bastard
 cd hidden-bastard
-xcodebuild -project HiddenBastard.xcodeproj -scheme HiddenBastard -configuration Release build
+bash ./build_app.sh
 ```
 
-See [BUILD.md](BUILD.md) for full build and signing instructions.
+The app is created at `build/HiddenBastard-CLT.app`. See [BUILD.md](BUILD.md) for DMG and signing instructions.
 
 ---
 
 ## Usage
 
 1. Launch Hidden Bastard
-2. Click **INITIALIZE SCAN** — scans all known junk locations
-3. Review **FOUND FILES** — each item shows what it is, category, and size
-4. Select what to remove (SELECT ALL or pick individually)
-5. Click **MOVE TO TRASH** — nothing is permanently deleted without going through Trash first
-6. Check **HISTORY** to see everything that's been cleaned
+2. Click **INITIALIZE SCAN** — scans known cleanup locations and performs broad discovery of hidden and large user folders
+3. Review **FOUND FILES** — each item shows its path, purpose, size, and item timestamp
+4. Select only items you have verified; protected credential and browser-profile paths cannot be selected
+5. Optionally click **EXPORT .MD** to save a report locally; check names and paths before sharing it with an AI chatbot
+6. Click **MOVE TO TRASH** — selected items are moved to Trash
+7. Check **HISTORY** to see everything that's been moved
 
 ---
 
-## What It Will Never Touch
+## Safety rules
 
-- Your documents, photos, music, videos
-- Application binaries
-- Active project files
-- System integrity files
-
-The deep scan *surfaces* large unfamiliar folders so you can finally see them — but they're flagged **high-risk / review-first** and never auto-selected. And everything goes to **Trash first**, never a permanent delete. You choose what's removed; you can always undo.
+Broad discovery surfaces unfamiliar folders rather than calling them junk. Documents, photos, project data, developer state, and installed apps are never auto-selected. Recognized password, keychain, browser-profile, and credential paths are blocked from selection. Recent timestamps are clues, not proof that something is in use or unused. Other review-only items can be selected manually after you verify them. Selected items are moved to **Trash**, not permanently deleted.
 
 ---
 
@@ -117,10 +113,10 @@ Everything runs locally on your machine. No data leaves your computer. No analyt
 ## Building a Release DMG
 
 ```bash
-./make_dmg.sh 1.1.0
+bash ./make_dmg.sh 1.1.0
 ```
 
-Builds a Release `.app`, wraps it in a DMG with an Applications symlink, outputs to `build/HiddenBastard-1.1.0.dmg`. Attach to a GitHub Release.
+Builds the app using the Command Line Tools, wraps it in a DMG with an Applications symlink, and outputs `build/HiddenBastard-1.1.0.dmg`. Existing files in `build/` are preserved.
 
 ---
 
